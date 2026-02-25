@@ -19,8 +19,8 @@ Functions for generating rooted trees in lexicographic order, based on the algor
 
 from collections.abc import Generator
 
-from .trees import Tree
-from .utils import _level_sequence_to_list_repr
+from kauri.trees import Tree
+from kauri.utils import _level_sequence_to_list_repr
 
 
 def trees_up_to_order(order: int) -> Generator[Tree, None, None]:

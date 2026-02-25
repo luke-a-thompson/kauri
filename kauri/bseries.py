@@ -84,9 +84,9 @@ from functools import cache
 
 import sympy as sp
 
-from .gentrees import trees_up_to_order
-from .maps import Map
-from .trees import Tree
+from kauri.gentrees import trees_up_to_order
+from kauri.maps import Map
+from kauri.trees import Tree
 
 
 def _check_f_y(f, y):

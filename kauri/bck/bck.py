@@ -17,9 +17,9 @@
 Front-end for the BCK module
 """
 
-from ..bck_impl import _antipode, _coproduct, _counit
-from ..maps import Map
-from ..trees import TensorProductSum, Tree
+from kauri.bck_impl import _antipode, _coproduct, _counit
+from kauri.maps import Map
+from kauri.trees import TensorProductSum, Tree
 
 counit = Map(_counit)
 counit.__doc__ = """

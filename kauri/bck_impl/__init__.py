@@ -17,4 +17,4 @@
 Back-end for the BCK module
 """
 
-from .bck_impl import _antipode, _coproduct, _counit
+from kauri.bck_impl.bck_impl import _antipode, _coproduct, _counit

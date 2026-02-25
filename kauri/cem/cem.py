@@ -17,10 +17,10 @@
 Front-end for the CEM module
 """
 
-from ..cem_impl import _antipode, _coproduct, _counit
-from ..generic_algebra import _func_power
-from ..maps import Map
-from ..trees import TensorProductSum, Tree
+from kauri.cem_impl import _antipode, _coproduct, _counit
+from kauri.generic_algebra import _func_power
+from kauri.maps import Map
+from kauri.trees import TensorProductSum, Tree
 
 counit = Map(_counit)
 counit.__doc__ = """

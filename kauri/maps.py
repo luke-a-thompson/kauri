@@ -24,13 +24,13 @@ import copy
 from functools import lru_cache
 from typing import Union
 
-from .bck_impl import _antipode as bck_antipode
-from .bck_impl import _coproduct as bck_coproduct
-from .bck_impl import _counit as bck_counit
-from .cem_impl import _antipode as cem_antipode
-from .cem_impl import _coproduct as cem_coproduct
-from .generic_algebra import MapFunc, MapValue, _apply, _func_power, _func_product
-from .trees import EMPTY_TREE, Forest, ForestSum, Tree, _is_tree_like
+from kauri.bck_impl import _antipode as bck_antipode
+from kauri.bck_impl import _coproduct as bck_coproduct
+from kauri.bck_impl import _counit as bck_counit
+from kauri.cem_impl import _antipode as cem_antipode
+from kauri.cem_impl import _coproduct as cem_coproduct
+from kauri.generic_algebra import MapFunc, MapValue, _apply, _func_power, _func_product
+from kauri.trees import EMPTY_TREE, Forest, ForestSum, Tree, _is_tree_like
 
 
 class Map:

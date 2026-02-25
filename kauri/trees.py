@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from functools import total_ordering
 from typing import Union
 
-from .utils import (
+from kauri.utils import (
     LabelledReprComparison,
     _check_valid,
     _factorial,

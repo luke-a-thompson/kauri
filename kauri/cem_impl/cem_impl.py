@@ -20,7 +20,7 @@ Back-end for the CEM module
 import itertools
 from functools import cache
 
-from ..trees import Forest, TensorProductSum, Tree
+from kauri.trees import Forest, TensorProductSum, Tree
 
 # We adopt the singleton-reduced coproduct, which defines a Hopf algebra
 # on planar trees quotiented by ([] - 1). As such, characters on the

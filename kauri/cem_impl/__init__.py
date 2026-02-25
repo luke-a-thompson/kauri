@@ -17,4 +17,4 @@
 Back-end for the CEM module
 """
 
-from .cem_impl import _antipode, _coproduct, _counit
+from kauri.cem_impl.cem_impl import _antipode, _coproduct, _counit

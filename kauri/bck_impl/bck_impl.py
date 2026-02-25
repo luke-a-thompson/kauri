@@ -20,8 +20,8 @@ Back-end for the BCK module
 import itertools
 from functools import cache
 
-from ..generic_algebra import _forest_apply
-from ..trees import EMPTY_FOREST, EMPTY_FOREST_SUM, EMPTY_TREE, Forest, TensorProductSum, Tree
+from kauri.generic_algebra import _forest_apply
+from kauri.trees import EMPTY_FOREST, EMPTY_FOREST_SUM, EMPTY_TREE, Forest, TensorProductSum, Tree
 
 
 def _counit(t):

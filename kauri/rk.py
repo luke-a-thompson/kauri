@@ -27,10 +27,10 @@ import sympy
 from scipy.optimize import root
 from tqdm import tqdm
 
-from .bck import counit
-from .gentrees import trees_of_order
-from .maps import Map, exact_weights, sign
-from .trees import Forest, ForestSum, Tree
+from kauri.bck import counit
+from kauri.gentrees import trees_of_order
+from kauri.maps import Map, exact_weights, sign
+from kauri.trees import Forest, ForestSum, Tree
 
 
 def _internal_symbolic(i, t_rep, a, b, s):

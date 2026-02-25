@@ -19,7 +19,7 @@ Utility functions for dealing with generic Hopf algebras on trees
 
 from collections.abc import Callable
 
-from .trees import Forest, ForestSum, TensorProductSum, Tree
+from kauri.trees import Forest, ForestSum, TensorProductSum, Tree
 
 MapValue = int | float | Tree | Forest | ForestSum
 MapFunc = Callable[[Tree], MapValue]

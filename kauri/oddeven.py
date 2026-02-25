@@ -19,10 +19,10 @@ decomposition applied to the BCK Hopf algebra :cite:`shmelev2025ees, aguiar2006c
 
 from functools import cache
 
-from .bck import antipode
-from .generic_algebra import _apply
-from .maps import Map, ident, sign
-from .trees import Tree
+from kauri.bck import antipode
+from kauri.generic_algebra import _apply
+from kauri.maps import Map, ident, sign
+from kauri.trees import Tree
 
 
 @cache

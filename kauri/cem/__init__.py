@@ -55,4 +55,4 @@ The ``kauri.cem`` sub-package implements the Calaque, Ebrahimi-Fard and Manchon 
 
 """
 
-from .cem import antipode, coproduct, counit, map_power, map_product
+from kauri.cem.cem import antipode, coproduct, counit, map_power, map_product
