@@ -86,7 +86,6 @@ class WilliamsonAnsatz(Ansatz):
     Low-storage 2N ansatz with Williamson coefficients as primary unknowns.
     """
 
-    name: str = "williamson_2n"
     validate_2n_polynomials: bool = True
 
     def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
@@ -111,7 +110,6 @@ class WilliamsonAnsatz(Ansatz):
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        solver: str,
         tol: float,
     ) -> bool:
         if tol < 0:

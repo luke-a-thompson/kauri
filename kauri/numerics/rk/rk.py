@@ -20,8 +20,6 @@ Runge-Kutta Schemes
 import copy
 import warnings
 from collections.abc import Callable
-from typing import Literal
-
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy
@@ -354,9 +352,7 @@ class RK:
         b_vector = [sympy.nsimplify(value, rational=True) for value in self.b]
         return c_vector, a_matrix, b_vector
 
-    def to_text(
-        self, mode: Literal["structure", "symbolic"] = "structure", max_cell_chars: int = 48
-    ) -> str:
+    def to_text(self, max_cell_chars: int = 48) -> str:
         from kauri.numerics.rk.rk_maker_format import format_tableau_text
 
         c_vector, a_matrix, b_vector = self._rationalised_tableau()
@@ -364,13 +360,10 @@ class RK:
             c_vector=c_vector,
             a_matrix=a_matrix,
             b_vector=b_vector,
-            mode=mode,
             max_cell_chars=max_cell_chars,
         )
 
-    def to_latex(
-        self, mode: Literal["structure", "symbolic"] = "structure", max_cell_chars: int = 48
-    ) -> str:
+    def to_latex(self, max_cell_chars: int = 48) -> str:
         from kauri.numerics.rk.rk_maker_format import format_tableau_latex
 
         c_vector, a_matrix, b_vector = self._rationalised_tableau()
@@ -378,9 +371,17 @@ class RK:
             c_vector=c_vector,
             a_matrix=a_matrix,
             b_vector=b_vector,
-            mode=mode,
             max_cell_chars=max_cell_chars,
         )
+
+    def to_cf(self, tol: float = 1e-12) -> "Williamson2NCF":
+        """
+        Lift this explicit RK method to its commutator-free Lie-group form
+        via the Williamson 2N representation.
+        """
+        from kauri.numerics.cf.cf_williamson import lift_to_cf, rk_to_williamson_2n
+
+        return lift_to_cf(rk_to_williamson_2n(self, tol=tol))
 
     def _check_explicit(self):
         for i in range(self.s):

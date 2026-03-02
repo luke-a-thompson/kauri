@@ -163,6 +163,5 @@ class RKTests(unittest.TestCase):
             order=4,
             stages=2,
             max_solutions=1,
-            solver="grobner",
         )
         self.assertEqual(0, len(result.methods))

@@ -49,7 +49,7 @@ class Williamson2NCF:
             "=== Williamson Commutator-Free Method ===",
             f"name: {self.name}",
             f"stages: {self.base.stages}",
-            f"exponentials_per_t_to_t_plus_h_update: {self.exponentials_per_update}",
+            f"exponentials per timestep: {self.exponentials_per_update}",
             "",
             "equations:",
             "  Y_0 = Y_t",

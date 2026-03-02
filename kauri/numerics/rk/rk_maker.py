@@ -16,7 +16,6 @@
 """Utilities for constructing explicit Runge--Kutta methods from rooted-tree order conditions."""
 
 from dataclasses import dataclass
-from typing import Literal
 
 import sympy
 
@@ -43,31 +42,29 @@ class RKMakerResult:
     free_symbols: list[str]
     free_symbol_relations: list[sympy.core.basic.Basic]
     trees: list[Tree]
-    solver: str
     ansatz: str
+    fixings: dict[str, sympy.core.basic.Basic]
 
     def __str__(self) -> str:
-        return self.format(mode="structure")
+        return self.format()
 
     def format(
         self,
-        mode: Literal["structure", "symbolic"] = "structure",
         max_cell_chars: int = 48,
     ) -> str:
         from kauri.numerics.rk.rk_maker_format import result_to_text
 
-        return result_to_text(self, mode=mode, max_cell_chars=max_cell_chars)
+        return result_to_text(self, max_cell_chars=max_cell_chars)
 
     def to_latex(
         self,
-        mode: Literal["structure", "symbolic"] = "structure",
         max_cell_chars: int = 48,
         standalone: bool = True,
     ) -> str:
         from kauri.numerics.rk.rk_maker_format import result_to_latex
 
         return result_to_latex(
-            self, mode=mode, max_cell_chars=max_cell_chars, standalone=standalone
+            self, max_cell_chars=max_cell_chars, standalone=standalone
         )
 
 
@@ -197,7 +194,7 @@ def _relations_among_free_symbols(
 
     polys = [sympy.Poly(sympy.nsimplify(e), *variable_order, domain="QQ") for e in equations]
     elimination_basis = sympy.groebner(
-        polys, *variable_order, order="lex", domain="QQ", method="f5b"
+        polys, *variable_order, order="grevlex", domain="QQ", method="f5b"
     )
     free_set = set(free_symbols)
     relations: list[sympy.core.basic.Basic] = []
@@ -239,6 +236,13 @@ def _solve_with_grobner(
         solutions=raw_solutions, free_symbols=free_symbols, free_symbol_relations=relations
     )
 
+def _solution_is_numeric(named_solution: dict[str, sympy.core.basic.Basic]) -> bool:
+    """Return True when every value in the solution is a concrete number (no free symbols)."""
+    return all(
+        not sympy.sympify(value).free_symbols for value in named_solution.values()
+    )
+
+
 def _construct_explicit_tableau(
     stages: int, symbol_values: dict[str, sympy.core.basic.Basic]
 ) -> tuple[list[list[float]], list[float]]:
@@ -273,7 +277,6 @@ def make_explicit_rk_methods(
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,
     max_solutions: int | None = 1,
-    solver: Literal["grobner"] = "grobner",
     verify_symbolic: bool = True,
     ansatz_validation_tol: float = 1e-10,
 ) -> RKMakerResult:
@@ -294,8 +297,6 @@ def make_explicit_rk_methods(
         raise ValueError("antisymmetric_order must be positive")
     if ansatz_validation_tol < 0:
         raise ValueError("ansatz_validation_tol must be non-negative")
-    if solver != "grobner":
-        raise ValueError('Invalid solver: only "grobner" is supported for method construction')
 
     equations, trees = generate_explicit_order_equations(order, stages, rationalise=True)
     if antisymmetric_order is not None:
@@ -375,13 +376,17 @@ def make_explicit_rk_methods(
         if not ansatz_used.post_validate(
             stages=stages,
             named_solution=named,
-            solver=solver,
             tol=ansatz_validation_tol,
         ):
             continue
         named_solutions.append(named)
-        a_matrix, b_vector = _construct_explicit_tableau(stages, named)
-        methods.append(RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}"))
+        if _solution_is_numeric(named):
+            a_matrix, b_vector = _construct_explicit_tableau(stages, named)
+            methods.append(RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}"))
+
+    fixings: dict[str, sympy.core.basic.Basic] = {
+        str(symbol): value for symbol, value in assignments.items()
+    }
 
     return RKMakerResult(
         methods=methods,
@@ -391,8 +396,8 @@ def make_explicit_rk_methods(
         free_symbols=[str(symbol) for symbol in free_symbols],
         free_symbol_relations=free_symbol_relations,
         trees=trees,
-        solver=solver,
-        ansatz=ansatz_used.name,
+        ansatz=type(ansatz_used).__name__,
+        fixings=fixings,
     )
 
 
@@ -409,4 +414,4 @@ if __name__ == "__main__":
 
     print(demo_result)
     with open("rk_maker_output.tex", "w", encoding="utf-8") as f:
-        f.write(demo_result.to_latex(mode="structure", standalone=True))
+        f.write(demo_result.to_latex(standalone=True))

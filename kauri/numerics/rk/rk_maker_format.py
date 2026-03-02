@@ -1,4 +1,4 @@
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import sympy
 
@@ -7,19 +7,23 @@ if TYPE_CHECKING:
 
 
 def _result_metadata(result: "RKMakerResult") -> list[tuple[str, str]]:
+    fixings_str = (
+        ", ".join(f"{k}={sympy.sstr(v)}" for k, v in result.fixings.items())
+        if result.fixings
+        else "none"
+    )
     return [
-        ("solver", result.solver),
         ("ansatz", result.ansatz),
-        ("equations", str(len(result.equations))),
+        ("reduced equations", str(len(result.equations))),
         ("active unknowns", ", ".join(result.unknowns)),
         ("free symbols", ", ".join(result.free_symbols)),
+        ("fixings", fixings_str),
         ("method count", str(len(result.methods))),
     ]
 
 
 def result_to_text(
     result: "RKMakerResult",
-    mode: Literal["structure", "symbolic"] = "structure",
     max_cell_chars: int = 48,
 ) -> str:
     lines: list[str] = []
@@ -33,17 +37,22 @@ def result_to_text(
             lines.append("relations among free symbols:")
             for relation in result.free_symbol_relations:
                 lines.append(f"  {sympy.sstr(relation)} = 0")
-    lines.append(f"method count: {len(result.methods)}")
 
     if len(result.methods) > 0 and hasattr(result.methods[0], "to_text"):
         lines.append("")
-        lines.append(result.methods[0].to_text(mode=mode, max_cell_chars=max_cell_chars))
+        lines.append(result.methods[0].to_text(max_cell_chars=max_cell_chars))
+    elif len(result.solutions) > 0 and len(result.methods) == 0:
+        lines.append("")
+        lines.append(
+            "No explicit numeric method could be constructed — the solution"
+            " contains free parameters. Fix remaining free symbols via"
+            " fixed_values/zero_symbols, or use the symbolic solutions directly."
+        )
     return "\n".join(lines)
 
 
 def result_to_latex(
     result: "RKMakerResult",
-    mode: Literal["structure", "symbolic"] = "structure",
     max_cell_chars: int = 48,
     standalone: bool = True,
 ) -> str:
@@ -60,7 +69,14 @@ def result_to_latex(
     lines.append(r"\end{itemize}")
 
     if len(result.methods) > 0 and hasattr(result.methods[0], "to_latex"):
-        lines.append(result.methods[0].to_latex(mode=mode, max_cell_chars=max_cell_chars))
+        lines.append(result.methods[0].to_latex(max_cell_chars=max_cell_chars))
+    elif len(result.solutions) > 0 and len(result.methods) == 0:
+        lines.append(
+            r"\textit{No explicit numeric method could be constructed"
+            r" --- the solution contains free parameters."
+            r" Fix remaining free symbols via fixed\_values/zero\_symbols,"
+            r" or use the symbolic solutions directly.}"
+        )
 
     if standalone:
         lines.append(r"\end{document}")
@@ -71,11 +87,8 @@ def format_tableau_text(
     c_vector: list[sympy.core.basic.Basic],
     a_matrix: list[list[sympy.core.basic.Basic]],
     b_vector: list[sympy.core.basic.Basic],
-    mode: Literal["structure", "symbolic"] = "structure",
     max_cell_chars: int = 48,
 ) -> str:
-    if mode == "symbolic":
-        return _format_text_tableau(c_vector, a_matrix, b_vector)
     tableau_str, definitions = _format_text_tableau_structure(
         c_vector=c_vector,
         a_matrix=a_matrix,
@@ -91,11 +104,8 @@ def format_tableau_latex(
     c_vector: list[sympy.core.basic.Basic],
     a_matrix: list[list[sympy.core.basic.Basic]],
     b_vector: list[sympy.core.basic.Basic],
-    mode: Literal["structure", "symbolic"] = "structure",
     max_cell_chars: int = 48,
 ) -> str:
-    if mode == "symbolic":
-        return _format_latex_tableau(c_vector, a_matrix, b_vector)
     tableau_latex, definitions = _format_latex_tableau_structure(
         c_vector=c_vector,
         a_matrix=a_matrix,
@@ -139,18 +149,6 @@ def _format_text_tableau_from_strings(
     return "\n".join(lines)
 
 
-def _format_text_tableau(
-    c_vector: list[sympy.core.basic.Basic],
-    a_matrix: list[list[sympy.core.basic.Basic]],
-    b_vector: list[sympy.core.basic.Basic],
-) -> str:
-    stages = len(b_vector)
-    c_cells = [sympy.sstr(expr) for expr in c_vector]
-    a_cells = [[sympy.sstr(a_matrix[i][j]) for j in range(stages)] for i in range(stages)]
-    b_cells = [sympy.sstr(expr) for expr in b_vector]
-    return _format_text_tableau_from_strings(c_cells, a_cells, b_cells)
-
-
 def _format_text_tableau_structure(
     c_vector: list[sympy.core.basic.Basic],
     a_matrix: list[list[sympy.core.basic.Basic]],
@@ -183,24 +181,6 @@ def _format_text_tableau_structure(
 
     b_cells = [maybe_placeholder(sympy.sstr(b_vector[j]), b_vector[j]) for j in range(stages)]
     return _format_text_tableau_from_strings(c_cells, a_cells, b_cells), definitions
-
-
-def _format_latex_tableau(
-    c_vector: list[sympy.core.basic.Basic],
-    a_matrix: list[list[sympy.core.basic.Basic]],
-    b_vector: list[sympy.core.basic.Basic],
-) -> str:
-    stages = len(b_vector)
-    cols = "c|" + ("c" * stages)
-    lines: list[str] = [rf"\begin{{array}}{{{cols}}}"]
-    for i in range(stages):
-        row = [sympy.latex(c_vector[i])] + [sympy.latex(a_matrix[i][j]) for j in range(stages)]
-        lines.append(" & ".join(row) + r"\\")
-    lines.append(r"\hline")
-    brow = [""] + [sympy.latex(b_vector[j]) for j in range(stages)]
-    lines.append(" & ".join(brow) + r"\\")
-    lines.append(r"\end{array}")
-    return "\n".join(lines)
 
 
 def _format_latex_tableau_structure(

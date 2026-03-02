@@ -13,8 +13,6 @@ class Ansatz(Protocol):
     Protocol for structural RK ansatzes.
     """
 
-    name: str
-
     def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
         """
         Return additional equations (each interpreted as expr == 0).
@@ -37,7 +35,6 @@ class Ansatz(Protocol):
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        solver: str,
         tol: float,
     ) -> bool:
         """
@@ -52,8 +49,6 @@ class IdentityAnsatz:
     No-op ansatz used as default.
     """
 
-    name: str = "standard_explicit"
-
     def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
         return []
 
@@ -67,7 +62,6 @@ class IdentityAnsatz:
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        solver: str,
         tol: float,
     ) -> bool:
         if tol < 0:
@@ -82,7 +76,6 @@ class CompositeAnsatz:
     """
 
     ansatzes: list[Ansatz]
-    name: str = "composite"
 
     def __post_init__(self) -> None:
         if len(self.ansatzes) == 0:
@@ -122,12 +115,9 @@ class CompositeAnsatz:
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        solver: str,
         tol: float,
     ) -> bool:
         return all(
-            ansatz.post_validate(
-                stages=stages, named_solution=named_solution, solver=solver, tol=tol
-            )
+            ansatz.post_validate(stages=stages, named_solution=named_solution, tol=tol)
             for ansatz in self.ansatzes
         )

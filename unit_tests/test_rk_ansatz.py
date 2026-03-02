@@ -55,9 +55,8 @@ class RKAnsatzTests(unittest.TestCase):
                 "B2": 1,
             },
             max_solutions=1,
-            solver="grobner",
         )
-        self.assertEqual("williamson_2n", result.ansatz)
+        self.assertEqual("WilliamsonAnsatz", result.ansatz)
         self.assertGreaterEqual(len(result.methods), 1)
 
     def test_recover_ees25_via_williamson_ansatz(self):
@@ -68,7 +67,6 @@ class RKAnsatzTests(unittest.TestCase):
             ansatz=WilliamsonAnsatz(),
             fixed_values={"b0": sympy.Rational(1, 4)},
             max_solutions=1,
-            solver="grobner",
         )
         self.assertEqual(1, len(result.methods))
         method = result.methods[0]
