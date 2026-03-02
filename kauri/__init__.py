@@ -24,20 +24,9 @@ from kauri.trees.gentrees import trees_of_order, trees_up_to_order
 from kauri.hopf_algebras.maps import Map, exact_weights, ident, omega, sign
 from kauri.hopf_algebras.oddeven import id_sqrt, minus, plus
 from kauri.numerics.rk.rk import RK, rk_order_cond, rk_symbolic_weight
-from kauri.numerics.rk.rk_ansatz import CompositeAnsatz, IdentityAnsatz
-from kauri.numerics.rk.williamson_ansatz import (
-    WilliamsonAnsatz,
-    generate_2n_polynomial_constraints,
-    is_2n_tableau,
-)
-from kauri.numerics.rk.rk_constraints import CompiledConstraints, Constraint, compile_constraints
-from kauri.numerics.rk.rk_maker import (
-    RKMakerResult,
-    explicit_unknown_symbols,
-    generate_explicit_order_equations,
-    make_explicit_rk_methods,
-)
-from kauri.numerics.rk.rk_objectives import MethodScore, RKObjective, score_methods
+from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
+from kauri.numerics.rk.rk_constraints import Constraint
+from kauri.numerics.rk.rk_maker import RKMakerResult, make_explicit_rk_methods
 from kauri.numerics.rk.rk_methods import (
     EES25,
     EES27,
@@ -57,21 +46,10 @@ from kauri.numerics.rk.rk_methods import (
     ralston_rk4,
     rk4,
 )
-from kauri.trees.trees import (
-    EMPTY_FOREST,
-    EMPTY_FOREST_SUM,
-    EMPTY_TREE,
-    ZERO_FOREST_SUM,
-    Forest,
-    ForestSum,
-    TensorProductSum,
-    Tree,
-)
-from kauri.numerics.cf.cf_williamson import Williamson2N, Williamson2NCF, lift_to_cf, rk_to_williamson_2n
+from kauri.trees.trees import Forest, ForestSum, TensorProductSum, Tree
+from kauri.numerics.cf.cf_williamson import Williamson2N, Williamson2NCF
 from kauri.numerics.cf.cf_verify import VerificationResult, verify_cf_ees
 from kauri.numerics.planar_trees.planar_basis import (
-    EMPTY_ORDERED_FOREST,
-    EMPTY_PLANAR_TREE,
     OrderedForest,
     OrderedForestSum,
     PlanarTree,
