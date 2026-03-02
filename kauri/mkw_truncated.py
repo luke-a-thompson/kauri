@@ -17,11 +17,9 @@ from kauri.planar_basis import (
     OrderedForest,
     OrderedForestSum,
     PlanarTree,
+    ensure_planar_tree,
 )
-
-
-def _as_expr(value: sympy.core.basic.Basic | int | float) -> sympy.Expr:
-    return cast(sympy.Expr, sympy.sympify(value))
+from kauri.utils import _as_expr, _simplify_expanded
 
 
 @dataclass(frozen=True)
@@ -35,9 +33,8 @@ def coproduct_terms(tree: PlanarTree) -> tuple[CoproductTerm, ...]:
     """
     Ordered-tree BCK-style coproduct terms, preserving sibling order.
     """
-    if not isinstance(tree, PlanarTree):
-        raise TypeError(f"tree must be PlanarTree, not {type(tree)}")
-    raw: tuple[tuple[OrderedForest, PlanarTree], ...] = _coproduct_helper(tree)
+    planar_tree = ensure_planar_tree(tree)
+    raw: tuple[tuple[OrderedForest, PlanarTree], ...] = _coproduct_helper(planar_tree)
     return tuple(
         CoproductTerm(coeff=sympy.Integer(1), left=left, right=right) for left, right in raw
     )
@@ -99,20 +96,17 @@ class MKWMap:
             out: sympy.core.basic.Basic = sympy.Integer(1)
             for tree in value.tree_list:
                 out = sympy.expand(_as_expr(out) * _as_expr(self._call_tree(tree)))
-            return sympy.simplify(out)
+            return _simplify_expanded(out)
         if isinstance(value, OrderedForestSum):
             out_sum: sympy.core.basic.Basic = sympy.Integer(0)
             for coeff, forest in value.term_list:
                 out_sum = sympy.expand(
                     _as_expr(out_sum) + _as_expr(coeff) * _as_expr(self(forest))
                 )
-            return sympy.simplify(out_sum)
+            return _simplify_expanded(out_sum)
         raise TypeError(f"Unsupported value type for MKWMap: {type(value)}")
 
     def convolution(self, other: MKWMap) -> MKWMap:
-        if not isinstance(other, MKWMap):
-            raise TypeError(f"other must be MKWMap, not {type(other)}")
-
         def conv(tree: PlanarTree) -> sympy.core.basic.Basic:
             out: sympy.core.basic.Basic = sympy.Integer(0)
             for term in coproduct_terms(tree):
@@ -122,7 +116,7 @@ class MKWMap:
                 out = sympy.expand(
                     _as_expr(out) + coeff_expr * left_expr * right_expr
                 )
-            return sympy.simplify(out)
+            return _simplify_expanded(out)
 
         return MKWMap(conv)
 

@@ -20,6 +20,7 @@ Runge-Kutta Schemes
 import copy
 import warnings
 from collections.abc import Callable
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -316,6 +317,50 @@ class RK:
         out += repr(self.a[-1]) + "]\n"
         out += repr(self.b)
         return out
+
+    def to_text(
+        self, mode: Literal["structure", "symbolic"] = "structure", max_cell_chars: int = 48
+    ) -> str:
+        from kauri.rk_maker_format import format_tableau_text
+
+        c_vector: list[sympy.core.basic.Basic] = [
+            sympy.nsimplify(value, rational=True) for value in self.c
+        ]
+        a_matrix: list[list[sympy.core.basic.Basic]] = [
+            [sympy.nsimplify(self.a[i][j], rational=True) for j in range(self.s)] for i in range(self.s)
+        ]
+        b_vector: list[sympy.core.basic.Basic] = [
+            sympy.nsimplify(value, rational=True) for value in self.b
+        ]
+        return format_tableau_text(
+            c_vector=c_vector,
+            a_matrix=a_matrix,
+            b_vector=b_vector,
+            mode=mode,
+            max_cell_chars=max_cell_chars,
+        )
+
+    def to_latex(
+        self, mode: Literal["structure", "symbolic"] = "structure", max_cell_chars: int = 48
+    ) -> str:
+        from kauri.rk_maker_format import format_tableau_latex
+
+        c_vector: list[sympy.core.basic.Basic] = [
+            sympy.nsimplify(value, rational=True) for value in self.c
+        ]
+        a_matrix: list[list[sympy.core.basic.Basic]] = [
+            [sympy.nsimplify(self.a[i][j], rational=True) for j in range(self.s)] for i in range(self.s)
+        ]
+        b_vector: list[sympy.core.basic.Basic] = [
+            sympy.nsimplify(value, rational=True) for value in self.b
+        ]
+        return format_tableau_latex(
+            c_vector=c_vector,
+            a_matrix=a_matrix,
+            b_vector=b_vector,
+            mode=mode,
+            max_cell_chars=max_cell_chars,
+        )
 
     def _check_explicit(self):
         for i in range(self.s):

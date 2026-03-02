@@ -19,6 +19,7 @@ Back-end utility functions
 
 import math
 from functools import cache
+from typing import cast
 
 import sympy as sp
 
@@ -253,3 +254,11 @@ def _str(c, rationalise=False, tol=1e-10):
     if rationalise:
         return _rationalise(c, tol)
     return str(c)
+
+
+def _as_expr(value: sp.Basic | int | float) -> sp.Expr:
+    return cast(sp.Expr, sp.sympify(value))
+
+
+def _simplify_expanded(value: sp.Basic | int | float) -> sp.Basic:
+    return sp.simplify(sp.expand(sp.sympify(value)))

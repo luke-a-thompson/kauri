@@ -8,17 +8,14 @@ from collections.abc import Generator
 from functools import cache
 from itertools import product
 
-from kauri.planar_basis import EMPTY_PLANAR_TREE, PlanarTree
+from kauri.planar_basis import EMPTY_PLANAR_TREE, PlanarTree, validate_order
 
 
 def planar_trees_up_to_order(order: int) -> Generator[PlanarTree, None, None]:
     """
     Yield planar trees up to and including `order` nodes.
     """
-    if not isinstance(order, int):
-        raise TypeError(f"order must be int, not {type(order)}")
-    if order < 0:
-        raise ValueError("order must be non-negative")
+    validate_order(order, allow_zero=True)
     for n_nodes in range(0, order + 1):
         yield from planar_trees_of_order(n_nodes)
 
@@ -27,10 +24,7 @@ def planar_trees_of_order(order: int) -> Generator[PlanarTree, None, None]:
     """
     Yield planar trees with exactly `order` nodes.
     """
-    if not isinstance(order, int):
-        raise TypeError(f"order must be int, not {type(order)}")
-    if order < 0:
-        raise ValueError("order must be non-negative")
+    validate_order(order, allow_zero=True)
     if order == 0:
         yield EMPTY_PLANAR_TREE
         return

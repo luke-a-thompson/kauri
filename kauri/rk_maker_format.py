@@ -27,26 +27,11 @@ def result_to_text(
                 lines.append(f"  {sympy.sstr(relation)} = 0")
     lines.append(f"method count: {len(result.methods)}")
 
-    if len(result.solutions) == 0:
-        return "\n".join(lines)
-
-    c_vector, a_matrix, b_vector = _tableau_exprs_from_solution(result.solutions[0])
-    lines.append("")
-    if mode == "symbolic":
-        lines.append(_format_text_tableau(c_vector, a_matrix, b_vector))
-        return "\n".join(lines)
-
-    tableau_str, definitions = _format_text_tableau_structure(
-        c_vector=c_vector,
-        a_matrix=a_matrix,
-        b_vector=b_vector,
-        max_cell_chars=max_cell_chars,
-    )
-    lines.append(tableau_str)
-    if len(definitions) > 0:
+    if len(result.methods) > 0 and hasattr(result.methods[0], "to_text"):
         lines.append("")
-        lines.append("definitions:")
-        lines.extend(f"  {d}" for d in definitions)
+        lines.append(result.methods[0].to_text(mode=mode, max_cell_chars=max_cell_chars))
+        return "\n".join(lines)
+
     return "\n".join(lines)
 
 
@@ -72,71 +57,56 @@ def result_to_latex(
     lines.append(rf"\item method count: {len(result.methods)}")
     lines.append(r"\end{itemize}")
 
-    if len(result.solutions) > 0:
-        c_vector, a_matrix, b_vector = _tableau_exprs_from_solution(result.solutions[0])
-        if mode == "symbolic":
-            tableau_latex = _format_latex_tableau(c_vector, a_matrix, b_vector)
-            lines.append(r"\[")
-            lines.append(tableau_latex)
-            lines.append(r"\]")
-        else:
-            tableau_latex, definitions = _format_latex_tableau_structure(
-                c_vector=c_vector,
-                a_matrix=a_matrix,
-                b_vector=b_vector,
-                max_cell_chars=max_cell_chars,
-            )
-            lines.append(r"\[")
-            lines.append(tableau_latex)
-            lines.append(r"\]")
-            if len(definitions) > 0:
-                lines.append(r"\[")
-                lines.append(r"\begin{aligned}")
-                for name, expr in definitions:
-                    lines.append(rf"{name} &= {sympy.latex(expr)}\\")
-                lines.append(r"\end{aligned}")
-                lines.append(r"\]")
+    if len(result.methods) > 0 and hasattr(result.methods[0], "to_latex"):
+        lines.append(result.methods[0].to_latex(mode=mode, max_cell_chars=max_cell_chars))
 
     if standalone:
         lines.append(r"\end{document}")
     return "\n".join(lines)
 
 
-def _tableau_exprs_from_solution(
-    named_solution: dict[str, sympy.core.basic.Basic],
-) -> tuple[
-    list[sympy.core.basic.Basic],
-    list[list[sympy.core.basic.Basic]],
-    list[sympy.core.basic.Basic],
-]:
-    stages = _infer_stages_from_named_solution(named_solution)
-    a_matrix: list[list[sympy.core.basic.Basic]] = [
-        [sympy.Integer(0) for _ in range(stages)] for _ in range(stages)
-    ]
-    b_vector: list[sympy.core.basic.Basic] = [sympy.Integer(0) for _ in range(stages)]
-    for i in range(stages):
-        for j in range(i):
-            a_matrix[i][j] = sympy.sympify(named_solution.get(f"a{i}{j}", sympy.Integer(0)))
-        b_vector[i] = sympy.sympify(named_solution.get(f"b{i}", sympy.Integer(0)))
-
-    c_vector: list[sympy.core.basic.Basic] = []
-    for i in range(stages):
-        row_sum = sympy.Integer(0)
-        for j in range(stages):
-            row_sum = sympy.simplify(row_sum + a_matrix[i][j])
-        c_vector.append(sympy.simplify(row_sum))
-    return c_vector, a_matrix, b_vector
+def format_tableau_text(
+    c_vector: list[sympy.core.basic.Basic],
+    a_matrix: list[list[sympy.core.basic.Basic]],
+    b_vector: list[sympy.core.basic.Basic],
+    mode: Literal["structure", "symbolic"] = "structure",
+    max_cell_chars: int = 48,
+) -> str:
+    if mode == "symbolic":
+        return _format_text_tableau(c_vector, a_matrix, b_vector)
+    tableau_str, definitions = _format_text_tableau_structure(
+        c_vector=c_vector,
+        a_matrix=a_matrix,
+        b_vector=b_vector,
+        max_cell_chars=max_cell_chars,
+    )
+    if len(definitions) == 0:
+        return tableau_str
+    return "\n".join([tableau_str, "", "definitions:", *[f"  {d}" for d in definitions]])
 
 
-def _infer_stages_from_named_solution(named_solution: dict[str, sympy.core.basic.Basic]) -> int:
-    stages = 0
-    for key in named_solution.keys():
-        if key.startswith("b"):
-            try:
-                stages = max(stages, int(key[1:]) + 1)
-            except ValueError:
-                continue
-    return stages
+def format_tableau_latex(
+    c_vector: list[sympy.core.basic.Basic],
+    a_matrix: list[list[sympy.core.basic.Basic]],
+    b_vector: list[sympy.core.basic.Basic],
+    mode: Literal["structure", "symbolic"] = "structure",
+    max_cell_chars: int = 48,
+) -> str:
+    if mode == "symbolic":
+        return _format_latex_tableau(c_vector, a_matrix, b_vector)
+    tableau_latex, definitions = _format_latex_tableau_structure(
+        c_vector=c_vector,
+        a_matrix=a_matrix,
+        b_vector=b_vector,
+        max_cell_chars=max_cell_chars,
+    )
+    if len(definitions) == 0:
+        return "\n".join([r"\[", tableau_latex, r"\]"])
+    lines: list[str] = [r"\[", tableau_latex, r"\]", r"\[", r"\begin{aligned}"]
+    for name, expr in definitions:
+        lines.append(rf"{name} &= {sympy.latex(expr)}\\")
+    lines.extend([r"\end{aligned}", r"\]"])
+    return "\n".join(lines)
 
 
 def _format_text_tableau_from_strings(

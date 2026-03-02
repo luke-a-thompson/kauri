@@ -112,3 +112,51 @@ def build_and_verify_cf_methods(
         verification_results=verification_results,
         accepted_indices=accepted_indices,
     )
+
+
+def main() -> int:
+    """
+    Demo: generate an EES(2,5)-like 2N-storage scheme, lift to commutator-free, and verify.
+
+    Run with:
+        uv run python -m kauri.rk_maker_cf_pipeline
+    """
+    try:
+        rk_result: RKMakerResult = generate_2n_candidate_methods(
+            order=2,
+            stages=3,
+            antisymmetric_order=5,
+            fixed_values={"b0": sympy.Rational(1, 4)},
+            solver="grobner",
+            max_solutions=1,
+        )
+    except Exception as exc:
+        print(f"RK generation failed: {type(exc).__name__}: {exc}")
+        return 1
+
+    if len(rk_result.methods) == 0:
+        print("No RK methods were generated.")
+        return 2
+
+    rk_method = rk_result.methods[0]
+    try:
+        cf_method = lift_to_cf(rk_to_williamson_2n(rk_method))
+    except Exception as exc:
+        print(f"Williamson/CF lift failed: {type(exc).__name__}: {exc}")
+        return 3
+
+    verification = verify_cf_ees(cf_method, order=4)
+    print(rk_result)
+    print(cf_method.to_text())
+    print(
+        "verification:",
+        f"passed={verification.passed},",
+        f"checked_elements={verification.checked_elements},",
+        f"first_failure={verification.first_failure},",
+        f"residual={verification.residual}",
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.planar_basis import PlanarTree
+from kauri.planar_basis import PlanarTree, ensure_planar_tree
 
 
 @dataclass(frozen=True)
@@ -26,15 +26,13 @@ def counit_planar(tree: PlanarTree) -> sympy.core.basic.Basic:
     """
     Counit used by the truncated verifier.
     """
-    if not isinstance(tree, PlanarTree):
-        raise TypeError(f"tree must be PlanarTree, not {type(tree)}")
-    return sympy.Integer(1) if tree.list_repr is None else sympy.Integer(0)
+    planar_tree = ensure_planar_tree(tree)
+    return sympy.Integer(1) if planar_tree.list_repr is None else sympy.Integer(0)
 
 
 def sign_for_tree(tree: PlanarTree) -> int:
     """
     Tree sign for involution: (-1)^|t|.
     """
-    if not isinstance(tree, PlanarTree):
-        raise TypeError(f"tree must be PlanarTree, not {type(tree)}")
-    return 1 if tree.nodes() % 2 == 0 else -1
+    planar_tree = ensure_planar_tree(tree)
+    return 1 if planar_tree.nodes() % 2 == 0 else -1

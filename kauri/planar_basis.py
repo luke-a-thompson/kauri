@@ -162,3 +162,20 @@ EMPTY_PLANAR_TREE = PlanarTree(None)
 EMPTY_ORDERED_FOREST = OrderedForest((EMPTY_PLANAR_TREE,))
 EMPTY_ORDERED_FOREST_SUM = OrderedForestSum(((sympy.Integer(1), EMPTY_ORDERED_FOREST),))
 ZERO_ORDERED_FOREST_SUM = OrderedForestSum(((sympy.Integer(0), EMPTY_ORDERED_FOREST),))
+
+
+def ensure_planar_tree(tree: PlanarTree) -> PlanarTree:
+    if not isinstance(tree, PlanarTree):
+        raise TypeError(f"tree must be PlanarTree, not {type(tree)}")
+    return tree
+
+
+def validate_order(order: int, *, allow_zero: bool = True) -> None:
+    if not isinstance(order, int):
+        raise TypeError(f"order must be int, not {type(order)}")
+    if allow_zero:
+        if order < 0:
+            raise ValueError("order must be non-negative")
+        return
+    if order <= 0:
+        raise ValueError("order must be positive")
