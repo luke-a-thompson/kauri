@@ -3,8 +3,8 @@ import unittest
 import sympy
 
 from kauri import make_explicit_rk_methods
-from kauri.ansatz_2n import TwoNStorageAnsatz, generate_2n_aform_constraints
-from kauri.rk_constraints import Constraint, compile_constraints
+from kauri.numerics.rk.ansatz_2n import TwoNStorageAnsatz, generate_2n_aform_constraints
+from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 
 
 class RKAnsatzTests(unittest.TestCase):

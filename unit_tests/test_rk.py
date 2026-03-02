@@ -17,7 +17,7 @@ import unittest
 
 import sympy
 
-import kauri.bck as bck
+import kauri.hopf_algebras.bck as bck
 from kauri import (
     EES25,
     EES27,
@@ -45,8 +45,8 @@ from kauri import (
     trees_up_to_order,
 )
 from kauri import Tree as T
-from kauri.ansatz_2n import TwoNStorageAnsatz, generate_2n_aform_constraints
-from kauri.rk_constraints import Constraint, compile_constraints
+from kauri.numerics.rk.ansatz_2n import TwoNStorageAnsatz, generate_2n_aform_constraints
+from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 
 sample_trees = [
     T(None),

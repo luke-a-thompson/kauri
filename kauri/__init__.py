@@ -17,25 +17,24 @@
 Algebraic manipulation of rooted trees for the analysis of B-series and Runge-Kutta schemes.
 """
 
-import kauri.bck
-import kauri.cem
-from kauri.bseries import BSeries, elementary_differential
-from kauri.display import display
-from kauri.gentrees import trees_of_order, trees_up_to_order
-from kauri.maps import Map, exact_weights, ident, omega, sign
-from kauri.oddeven import id_sqrt, minus, plus
-from kauri.rk import RK, rk_order_cond, rk_symbolic_weight
-from kauri.rk_ansatz import CompositeAnsatz, IdentityAnsatz
-from kauri.ansatz_2n import TwoNStorageAnsatz, generate_2n_aform_constraints
-from kauri.rk_constraints import CompiledConstraints, Constraint, compile_constraints
-from kauri.rk_maker import (
+from kauri.hopf_algebras import bck, cem
+from kauri.hopf_algebras.bseries import BSeries, elementary_differential
+from kauri.viz.display import display
+from kauri.trees.gentrees import trees_of_order, trees_up_to_order
+from kauri.hopf_algebras.maps import Map, exact_weights, ident, omega, sign
+from kauri.hopf_algebras.oddeven import id_sqrt, minus, plus
+from kauri.numerics.rk.rk import RK, rk_order_cond, rk_symbolic_weight
+from kauri.numerics.rk.rk_ansatz import CompositeAnsatz, IdentityAnsatz
+from kauri.numerics.rk.ansatz_2n import TwoNStorageAnsatz, generate_2n_aform_constraints
+from kauri.numerics.rk.rk_constraints import CompiledConstraints, Constraint, compile_constraints
+from kauri.numerics.rk.rk_maker import (
     RKMakerResult,
     explicit_unknown_symbols,
     generate_explicit_order_equations,
     make_explicit_rk_methods,
 )
-from kauri.rk_objectives import MethodScore, RKObjective, score_methods
-from kauri.rk_methods import (
+from kauri.numerics.rk.rk_objectives import MethodScore, RKObjective, score_methods
+from kauri.numerics.rk.rk_methods import (
     EES25,
     EES27,
     backward_euler,
@@ -54,7 +53,7 @@ from kauri.rk_methods import (
     ralston_rk4,
     rk4,
 )
-from kauri.trees import (
+from kauri.trees.trees import (
     EMPTY_FOREST,
     EMPTY_FOREST_SUM,
     EMPTY_TREE,
@@ -64,14 +63,14 @@ from kauri.trees import (
     TensorProductSum,
     Tree,
 )
-from kauri.cf_williamson import Williamson2N, Williamson2NCF, lift_to_cf, rk_to_williamson_2n
-from kauri.cf_verify import VerificationResult, verify_cf_ees
-from kauri.rk_maker_cf_pipeline import (
+from kauri.numerics.cf.cf_williamson import Williamson2N, Williamson2NCF, lift_to_cf, rk_to_williamson_2n
+from kauri.numerics.cf.cf_verify import VerificationResult, verify_cf_ees
+from kauri.numerics.cf.rk_maker_cf_pipeline import (
     CFRKPipelineResult,
     build_and_verify_cf_methods,
     generate_2n_candidate_methods,
 )
-from kauri.planar_basis import (
+from kauri.numerics.planar_trees.planar_basis import (
     EMPTY_ORDERED_FOREST,
     EMPTY_PLANAR_TREE,
     OrderedForest,
@@ -79,4 +78,4 @@ from kauri.planar_basis import (
     PlanarTree,
     TensorOrderedSum,
 )
-from kauri.planar_gentrees import planar_trees_of_order, planar_trees_up_to_order
+from kauri.numerics.planar_trees.planar_gentrees import planar_trees_of_order, planar_trees_up_to_order

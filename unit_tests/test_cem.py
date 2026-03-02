@@ -16,7 +16,7 @@
 import unittest
 from typing import Any, cast
 
-import kauri.cem as cem
+import kauri.hopf_algebras.cem as cem
 from kauri import Map, Tree, exact_weights, ident, omega
 from kauri import Tree as T
 
