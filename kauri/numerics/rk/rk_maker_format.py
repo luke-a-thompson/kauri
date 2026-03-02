@@ -38,8 +38,6 @@ def result_to_text(
     if len(result.methods) > 0 and hasattr(result.methods[0], "to_text"):
         lines.append("")
         lines.append(result.methods[0].to_text(mode=mode, max_cell_chars=max_cell_chars))
-        return "\n".join(lines)
-
     return "\n".join(lines)
 
 

@@ -8,13 +8,13 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.numerics.rk.ansatz_2n import TwoNStorageAnsatz
 from kauri.numerics.cf.cf_verify import VerificationResult, verify_cf_ees
 from kauri.numerics.cf.cf_williamson import Williamson2NCF, lift_to_cf, rk_to_williamson_2n
 from kauri.numerics.rk.rk_ansatz import Ansatz, CompositeAnsatz
 from kauri.numerics.rk.rk_constraints import Constraint
 from kauri.numerics.rk.rk_maker import RKMakerResult, make_explicit_rk_methods
 from kauri.numerics.rk.rk import RK
+from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
 
 
 @dataclass
@@ -28,21 +28,11 @@ class CFRKPipelineResult:
 def _verify_rk_method(
     method: RK,
     verification_order: int,
-) -> tuple[Williamson2NCF | None, VerificationResult]:
-    try:
-        williamson = rk_to_williamson_2n(method)
-        cf_method = lift_to_cf(williamson)
-        verification = verify_cf_ees(cf_method, order=verification_order)
-        return cf_method, verification
-    except Exception as exc:  # pragma: no cover - defensive path
-        verification = VerificationResult(
-            passed=False,
-            order=verification_order,
-            checked_elements=0,
-            first_failure=f"exception:{type(exc).__name__}",
-            residual=sympy.sympify(str(exc)),
-        )
-        return None, verification
+) -> tuple[Williamson2NCF, VerificationResult]:
+    williamson = rk_to_williamson_2n(method)
+    cf_method = lift_to_cf(williamson)
+    verification = verify_cf_ees(cf_method, order=verification_order)
+    return cf_method, verification
 
 
 def generate_2n_candidate_methods(
@@ -57,22 +47,25 @@ def generate_2n_candidate_methods(
     additional_ansatz: Ansatz | None = None,
 ) -> RKMakerResult:
     """
-    Reuse existing rk_maker with TwoNStorageAnsatz as the construction core.
+    Reuse existing rk_maker with WilliamsonAnsatz as the construction core.
     """
-    two_n = TwoNStorageAnsatz()
-    ansatz_used: Ansatz = two_n
-    if additional_ansatz is not None:
-        ansatz_used = CompositeAnsatz([two_n, additional_ansatz], name="2n_plus_extra")
+    if solver != "grobner":
+        raise ValueError('Only solver="grobner" is supported for method construction.')
+    two_n = WilliamsonAnsatz()
+    ansatz: Ansatz = (
+        two_n if additional_ansatz is None
+        else CompositeAnsatz([two_n, additional_ansatz], name="williamson_plus_extra")
+    )
     return make_explicit_rk_methods(
         order=order,
         stages=stages,
         antisymmetric_order=antisymmetric_order,
-        ansatz=ansatz_used,
+        ansatz=ansatz,
         constraints=constraints,
         fixed_values=fixed_values,
         zero_symbols=zero_symbols,
         max_solutions=max_solutions,
-        solver="grobner" if solver == "grobner" else "scipy",
+        solver="grobner",
     )
 
 
@@ -111,12 +104,10 @@ def build_and_verify_cf_methods(
             method=method,
             verification_order=verification_order,
         )
-
-        if cf_method is not None:
-            cf_methods.append(cf_method)
-            verification_results.append(verification)
-            if verification.passed:
-                accepted_indices.append(idx)
+        cf_methods.append(cf_method)
+        verification_results.append(verification)
+        if verification.passed:
+            accepted_indices.append(idx)
 
     return CFRKPipelineResult(
         rk_result=rk_result,
@@ -154,14 +145,6 @@ def main() -> int:
         method=rk_result.methods[0],
         verification_order=4,
     )
-    if cf_method is None:
-        print(
-            "Williamson/CF verification failed:",
-            f"first_failure={verification.first_failure},",
-            f"residual={verification.residual}",
-        )
-        return 3
-
     print(rk_result)
     print(cf_method.to_text())
     print(

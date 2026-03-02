@@ -16,19 +16,17 @@
 """Utilities for constructing explicit Runge--Kutta methods from rooted-tree order conditions."""
 
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal
 
-import numpy as np
 import sympy
-from scipy.optimize import root
 
-from kauri.numerics.rk.ansatz_2n import TwoNStorageAnsatz
 from kauri.hopf_algebras.bck import counit
 from kauri.trees.gentrees import trees_up_to_order
 from kauri.hopf_algebras.maps import sign
 from kauri.numerics.rk.rk import RK, _rk_symbolic_weights_map, rk_order_cond
 from kauri.numerics.rk.rk_ansatz import Ansatz, IdentityAnsatz
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
+from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
 from kauri.trees.trees import Tree
 
 
@@ -83,8 +81,6 @@ def explicit_unknown_symbols(stages: int) -> tuple[list[sympy.Symbol], list[symp
     """
     Return strict lower-triangular A symbols and b symbols for explicit RK.
     """
-    if not isinstance(stages, int):
-        raise TypeError("stages must be an int, not " + str(type(stages)))
     if stages <= 0:
         raise ValueError("stages must be positive")
 
@@ -99,8 +95,6 @@ def generate_explicit_order_equations(
     """
     Generate rooted-tree order equations for explicit RK up to given order.
     """
-    if not isinstance(order, int):
-        raise TypeError("order must be an int, not " + str(type(order)))
     if order <= 0:
         raise ValueError("order must be positive")
 
@@ -121,8 +115,6 @@ def generate_explicit_antisymmetric_equations(
     The defining condition is ``m = (phi & sign) * phi = counit`` on trees,
     where ``phi`` is the method's elementary-weights map.
     """
-    if not isinstance(antisymmetric_order, int):
-        raise TypeError("antisymmetric_order must be an int, not " + str(type(antisymmetric_order)))
     if antisymmetric_order <= 0:
         raise ValueError("antisymmetric_order must be positive")
 
@@ -141,10 +133,6 @@ def generate_explicit_antisymmetric_equations(
     return equations, trees
 
 
-def _symbol_from_name(name: str) -> sympy.Symbol:
-    return sympy.symbols(name)
-
-
 def _normalise_assignments(
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None,
     zero_symbols: list[str] | None,
@@ -152,10 +140,10 @@ def _normalise_assignments(
     assignments: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
     if fixed_values is not None:
         for key, value in fixed_values.items():
-            assignments[_symbol_from_name(key)] = sympy.sympify(value)
+            assignments[sympy.symbols(key)] = sympy.sympify(value)
     if zero_symbols is not None:
         for name in zero_symbols:
-            assignments[_symbol_from_name(name)] = sympy.Integer(0)
+            assignments[sympy.symbols(name)] = sympy.Integer(0)
     return assignments
 
 
@@ -167,10 +155,7 @@ def _merge_substitution_maps(
         for symbol, value in substitutions.items():
             resolved_value = sympy.sympify(value)
             if symbol in merged:
-                lhs_expr = cast(sympy.Expr, sympy.sympify(merged[symbol]))
-                rhs_expr = cast(sympy.Expr, sympy.sympify(resolved_value))
-                delta = lhs_expr - rhs_expr
-                if sympy.simplify(delta) != 0:
+                if sympy.simplify(sympy.sympify(merged[symbol]) - sympy.sympify(resolved_value)) != 0:
                     raise ValueError(f"Conflicting substitutions for {symbol}")
             merged[symbol] = resolved_value
     return merged
@@ -209,8 +194,6 @@ def _relations_among_free_symbols(
     if len(free_symbols) == 0:
         return []
     variable_order = dependent_symbols + free_symbols
-    if len(variable_order) == 0:
-        return []
 
     polys = [sympy.Poly(sympy.nsimplify(e), *variable_order, domain="QQ") for e in equations]
     elimination_basis = sympy.groebner(
@@ -232,9 +215,7 @@ def _solve_with_grobner(
     unknown_symbols: list[sympy.Symbol],
     max_solutions: int | None,
 ) -> GrobnerSolveResult:
-    if len(unknown_symbols) == 0:
-        return GrobnerSolveResult(solutions=[], free_symbols=[], free_symbol_relations=[])
-    if len(equations) == 0:
+    if not unknown_symbols or not equations:
         return GrobnerSolveResult(solutions=[], free_symbols=[], free_symbol_relations=[])
 
     polys = [sympy.Poly(sympy.nsimplify(e), *unknown_symbols, domain="QQ") for e in equations]
@@ -258,52 +239,6 @@ def _solve_with_grobner(
         solutions=raw_solutions, free_symbols=free_symbols, free_symbol_relations=relations
     )
 
-def _solve_with_scipy(
-    equations: list[sympy.core.basic.Basic],
-    unknown_symbols: list[sympy.Symbol],
-    guesses: list[dict[str, float]] | None,
-    max_solutions: int | None,
-) -> list[dict[sympy.Symbol, sympy.core.basic.Basic]]:
-    if guesses is None:
-        guesses = [{str(symbol): 0.2 for symbol in unknown_symbols}]
-
-    lambdas = [sympy.lambdify(unknown_symbols, equation, "numpy") for equation in equations]
-    solutions: list[dict[sympy.Symbol, sympy.core.basic.Basic]] = []
-
-    for guess in guesses:
-        x0 = np.array(
-            [float(guess.get(str(symbol), 0.1)) for symbol in unknown_symbols], dtype=float
-        )
-
-        def residual(vec: np.ndarray) -> np.ndarray:
-            values = [func(*vec.tolist()) for func in lambdas]
-            return np.array(values, dtype=float)
-
-        root_result = root(residual, x0=x0, method="hybr")
-        if not root_result.success:
-            continue
-
-        mapping: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
-        for symbol, value in zip(unknown_symbols, root_result.x.tolist(), strict=True):
-            mapping[symbol] = sympy.nsimplify(value, tolerance=1e-12, rational=True)
-
-        duplicate = False
-        for existing in solutions:
-            if all(
-                sympy.simplify(existing[symbol]) == sympy.simplify(mapping[symbol])
-                for symbol in unknown_symbols
-            ):
-                duplicate = True
-                break
-        if not duplicate:
-            solutions.append(mapping)
-
-        if max_solutions is not None and len(solutions) >= max_solutions:
-            break
-
-    return solutions
-
-
 def _construct_explicit_tableau(
     stages: int, symbol_values: dict[str, sympy.core.basic.Basic]
 ) -> tuple[list[list[float]], list[float]]:
@@ -324,8 +259,7 @@ def _verify_solution(
 ) -> bool:
     substitutions = list(symbol_values.items())
     for equation in equations:
-        residual = sympy.simplify(sympy.expand(equation.subs(substitutions)))
-        if sympy.simplify(residual) != 0:
+        if sympy.simplify(sympy.expand(equation.subs(substitutions))) != 0:
             return False
     return True
 
@@ -339,8 +273,7 @@ def make_explicit_rk_methods(
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,
     max_solutions: int | None = 1,
-    solver: Literal["grobner", "scipy"] = "grobner",
-    scipy_initial_guesses: list[dict[str, float]] | None = None,
+    solver: Literal["grobner"] = "grobner",
     verify_symbolic: bool = True,
     ansatz_validation_tol: float = 1e-10,
 ) -> RKMakerResult:
@@ -351,7 +284,7 @@ def make_explicit_rk_methods(
       1. Generate explicit rooted-tree order conditions.
       2. Apply ansatz and user constraints in a shared symbolic system.
       3. Apply fixed assignments and zeroed symbols.
-      4. Solve using the requested solver (either ``"grobner"`` or ``"scipy"``).
+      4. Solve using Grobner elimination.
     """
     if order <= 0:
         raise ValueError("order must be positive")
@@ -359,16 +292,10 @@ def make_explicit_rk_methods(
         raise ValueError("stages must be positive")
     if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
         raise ValueError("antisymmetric_order must be positive")
-    if not (isinstance(max_solutions, int) or max_solutions is None):
-        raise TypeError("max_solutions must be an int or None, not " + str(type(max_solutions)))
-    if not isinstance(verify_symbolic, bool):
-        raise TypeError("verify_symbolic must be a bool, not " + str(type(verify_symbolic)))
-    if not isinstance(ansatz_validation_tol, (int, float)):
-        raise TypeError(
-            "ansatz_validation_tol must be a float or int, not " + str(type(ansatz_validation_tol))
-        )
-    if float(ansatz_validation_tol) < 0:
+    if ansatz_validation_tol < 0:
         raise ValueError("ansatz_validation_tol must be non-negative")
+    if solver != "grobner":
+        raise ValueError('Invalid solver: only "grobner" is supported for method construction')
 
     equations, trees = generate_explicit_order_equations(order, stages, rationalise=True)
     if antisymmetric_order is not None:
@@ -383,16 +310,23 @@ def make_explicit_rk_methods(
     compiled_constraints = compile_constraints(constraints if constraints is not None else [])
     equations = equations + compiled_constraints.equations
     a_symbols, b_symbols = explicit_unknown_symbols(stages)
-    all_symbols = a_symbols + b_symbols
+    default_symbols = a_symbols + b_symbols
+    solve_symbols = ansatz_used.solve_symbols(stages=stages)
+    all_symbols = default_symbols if solve_symbols is None else solve_symbols
 
     assignments = _normalise_assignments(fixed_values, zero_symbols)
     substitutions_map = _merge_substitution_maps(
         [
             ansatz_used.extra_substitutions(stages=stages),
             compiled_constraints.substitutions,
-            assignments,
         ]
     )
+    for symbol, value in assignments.items():
+        resolved_value = sympy.sympify(value)
+        if symbol in substitutions_map:
+            equations.append(sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value)))
+        else:
+            substitutions_map[symbol] = resolved_value
     substitutions = list(substitutions_map.items())
     reduced_equations = [sympy.simplify(sympy.expand(e.subs(substitutions))) for e in equations]
     reduced_equations = [e for e in reduced_equations if sympy.simplify(e) != 0]
@@ -400,24 +334,12 @@ def make_explicit_rk_methods(
     active_symbols = _free_symbols_in_equations(reduced_equations, all_symbols)
     active_symbols = [symbol for symbol in active_symbols if symbol not in substitutions_map]
 
-    match solver:
-        case "grobner":
-            grobner_result = _solve_with_grobner(
-                reduced_equations, active_symbols, max_solutions
-            )
-            raw_solutions = grobner_result.solutions
-            free_symbols = grobner_result.free_symbols
-            free_symbol_relations = grobner_result.free_symbol_relations
-            solver_used = "grobner"
-        case "scipy":
-            raw_solutions = _solve_with_scipy(
-                reduced_equations, active_symbols, scipy_initial_guesses, max_solutions
-            )
-            solver_used = "scipy"
-            free_symbols = []
-            free_symbol_relations = []
-        case _:
-            raise ValueError(f"Invalid solver: {solver}")
+    grobner_result = _solve_with_grobner(
+        reduced_equations, active_symbols, max_solutions
+    )
+    raw_solutions = grobner_result.solutions
+    free_symbols = grobner_result.free_symbols
+    free_symbol_relations = grobner_result.free_symbol_relations
 
     if len(active_symbols) == 0 and len(reduced_equations) == 0:
         raw_solutions = [{}]
@@ -437,6 +359,9 @@ def make_explicit_rk_methods(
                 merged[symbol] = symbol
             else:
                 merged[symbol] = sympy.Integer(0)
+        merged_items = list(merged.items())
+        for key, value in list(merged.items()):
+            merged[key] = sympy.simplify(sympy.expand(sympy.sympify(value).subs(merged_items)))
         if verify_symbolic and not _verify_solution(reduced_equations, merged):
             continue
         full_solutions.append(merged)
@@ -450,15 +375,12 @@ def make_explicit_rk_methods(
         if not ansatz_used.post_validate(
             stages=stages,
             named_solution=named,
-            solver=solver_used,
-            tol=float(ansatz_validation_tol),
+            solver=solver,
+            tol=ansatz_validation_tol,
         ):
             continue
         named_solutions.append(named)
-        try:
-            a_matrix, b_vector = _construct_explicit_tableau(stages, named)
-        except TypeError:
-            continue
+        a_matrix, b_vector = _construct_explicit_tableau(stages, named)
         methods.append(RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}"))
 
     return RKMakerResult(
@@ -469,7 +391,7 @@ def make_explicit_rk_methods(
         free_symbols=[str(symbol) for symbol in free_symbols],
         free_symbol_relations=free_symbol_relations,
         trees=trees,
-        solver=solver_used,
+        solver=solver,
         ansatz=ansatz_used.name,
     )
 
@@ -480,9 +402,8 @@ if __name__ == "__main__":
         order=2,
         stages=3,
         antisymmetric_order=5,
-        ansatz=TwoNStorageAnsatz(),
+        ansatz=WilliamsonAnsatz(),
         fixed_values={"b0": sympy.Rational(1, 4)},
-        solver="grobner",
         max_solutions=1,
     )
 

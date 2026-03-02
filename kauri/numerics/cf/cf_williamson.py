@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import sympy
 
 from kauri.numerics.rk.rk import RK
-from kauri.hopf_algebras.utils import _as_expr, _is_zero_like_expr
+from kauri.hopf_algebras.utils import _as_expr
 
 
 @dataclass(frozen=True)
@@ -170,12 +170,12 @@ def _verify_williamson_relations(
                     + _as_expr(B[j_idx])
                 )
             residual = sympy.simplify(_as_expr(a[i_idx][j_idx]) - _as_expr(expected))
-            if not _is_zero_like_expr(value=residual, tol=tol):
+            if sympy.simplify(residual) != 0:
                 raise ValueError("RK tableau does not satisfy Williamson recursion for a_ij.")
     for i_idx in range(stages - 1):
         expected_b = sympy.simplify(
             _as_expr(A_params[i_idx + 1]) * _as_expr(b[i_idx + 1]) + _as_expr(B[i_idx])
         )
         residual_b = sympy.simplify(_as_expr(b[i_idx]) - _as_expr(expected_b))
-        if not _is_zero_like_expr(value=residual_b, tol=tol):
-            raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")
+        if sympy.simplify(residual_b) != 0:
+                raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")

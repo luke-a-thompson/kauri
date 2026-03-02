@@ -4,9 +4,9 @@ Truncated ordered-tree Hopf-algebra utilities for symbolic verification.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import product
-from typing import cast
 
 import sympy
 
@@ -17,7 +17,6 @@ from kauri.numerics.planar_trees.planar_basis import (
     OrderedForest,
     OrderedForestSum,
     PlanarTree,
-    ensure_planar_tree,
 )
 from kauri.hopf_algebras.utils import _as_expr, _simplify_expanded
 
@@ -33,10 +32,9 @@ def coproduct_terms(tree: PlanarTree) -> tuple[CoproductTerm, ...]:
     """
     Ordered-tree BCK-style coproduct terms, preserving sibling order.
     """
-    planar_tree = ensure_planar_tree(tree)
-    raw: tuple[tuple[OrderedForest, PlanarTree], ...] = _coproduct_helper(planar_tree)
     return tuple(
-        CoproductTerm(coeff=sympy.Integer(1), left=left, right=right) for left, right in raw
+        CoproductTerm(coeff=sympy.Integer(1), left=left, right=right)
+        for left, right in _coproduct_helper(tree)
     )
 
 
@@ -58,9 +56,8 @@ def _coproduct_helper(tree: PlanarTree) -> tuple[tuple[OrderedForest, PlanarTree
         left_trees: list[PlanarTree] = []
         for left_forest, right_tree in picks:
             if right_tree.list_repr is not None:
-                right_repr_children.append(cast(tuple, right_tree.list_repr))
-            for left_tree in left_forest.tree_list:
-                left_trees.append(left_tree)
+                right_repr_children.append(right_tree.list_repr)
+            left_trees.extend(left_forest.tree_list)
         right_repr_children.append(tree.list_repr[-1])
         out_terms.append(
             (
@@ -76,9 +73,7 @@ class MKWMap:
     Minimal multiplicative linear map on ordered trees/forests.
     """
 
-    def __init__(self, func) -> None:
-        if not callable(func):
-            raise TypeError("func must be callable")
+    def __init__(self, func: Callable[[PlanarTree], sympy.core.basic.Basic]) -> None:
         self._func = func
         self._cache: dict[PlanarTree, sympy.core.basic.Basic] = {}
 
@@ -128,4 +123,4 @@ class MKWMap:
 
 
 def counit_map() -> MKWMap:
-    return MKWMap(lambda tree: counit_planar(tree))
+    return MKWMap(counit_planar)

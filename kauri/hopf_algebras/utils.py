@@ -263,11 +263,3 @@ def _as_expr(value: sp.Basic | int | float) -> sp.Expr:
 def _simplify_expanded(value: sp.Basic | int | float) -> sp.Basic:
     return sp.simplify(sp.expand(sp.sympify(value)))
 
-
-def _is_zero_like_expr(value: sp.Basic | int | float, tol: float) -> bool:
-    simplified = _simplify_expanded(value)
-    if simplified == 0:
-        return True
-    if len(simplified.free_symbols) > 0:
-        return False
-    return abs(float(sp.N(simplified, 30))) <= tol

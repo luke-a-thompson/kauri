@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import cast
 
 import sympy
 
@@ -83,7 +82,7 @@ class OrderedForest:
             return OrderedForest(self.tree_list + other.tree_list).simplify()
         if isinstance(other, OrderedForestSum):
             terms = tuple(
-                (coeff, cast(OrderedForest, self * forest))
+                (coeff, OrderedForest(self.tree_list + forest.tree_list).simplify())
                 for coeff, forest in other.term_list
             )
             return OrderedForestSum(terms).simplify()
@@ -99,20 +98,10 @@ class OrderedForestSum:
     term_list: tuple[tuple[sympy.core.basic.Basic, OrderedForest], ...] = tuple()
 
     def __post_init__(self) -> None:
-        normalized: list[tuple[sympy.core.basic.Basic, OrderedForest]] = []
-        for coeff, forest in self.term_list:
-            coeff_expr = sympy.sympify(coeff)
-            if isinstance(forest, PlanarTree):
-                forest_obj = forest.as_ordered_forest()
-            elif isinstance(forest, OrderedForest):
-                forest_obj = forest
-            else:
-                raise TypeError(
-                    "OrderedForestSum terms must be (scalar, PlanarTree|OrderedForest), "
-                    f"got {type(forest)}"
-                )
-            normalized.append((coeff_expr, forest_obj))
-        object.__setattr__(self, "term_list", tuple(normalized))
+        object.__setattr__(
+            self, "term_list",
+            tuple((sympy.sympify(c), f) for c, f in self.term_list),
+        )
 
     def __iter__(self) -> Iterator[tuple[sympy.core.basic.Basic, OrderedForest]]:
         yield from self.term_list
@@ -124,11 +113,7 @@ class OrderedForestSum:
         forest_by_key: dict[tuple[PlanarTree, ...], OrderedForest] = {}
         for coeff, forest in self.term_list:
             key = forest.simplify().tree_list
-            previous = cast(sympy.Expr, sympy.sympify(merged.get(key, sympy.Integer(0))))
-            current = cast(sympy.Expr, sympy.sympify(coeff))
-            merged[key] = sympy.simplify(
-                previous + current
-            )
+            merged[key] = sympy.simplify(merged.get(key, sympy.Integer(0)) + sympy.sympify(coeff))
             forest_by_key[key] = forest.simplify()
         terms: list[tuple[sympy.core.basic.Basic, OrderedForest]] = []
         for key, coeff in merged.items():
@@ -164,15 +149,7 @@ EMPTY_ORDERED_FOREST_SUM = OrderedForestSum(((sympy.Integer(1), EMPTY_ORDERED_FO
 ZERO_ORDERED_FOREST_SUM = OrderedForestSum(((sympy.Integer(0), EMPTY_ORDERED_FOREST),))
 
 
-def ensure_planar_tree(tree: PlanarTree) -> PlanarTree:
-    if not isinstance(tree, PlanarTree):
-        raise TypeError(f"tree must be PlanarTree, not {type(tree)}")
-    return tree
-
-
 def validate_order(order: int, *, allow_zero: bool = True) -> None:
-    if not isinstance(order, int):
-        raise TypeError(f"order must be int, not {type(order)}")
     if allow_zero:
         if order < 0:
             raise ValueError("order must be non-negative")

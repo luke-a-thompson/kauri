@@ -3,7 +3,7 @@ Constraint helpers for RK maker equations.
 """
 
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal
 
 import sympy
 
@@ -19,9 +19,6 @@ def _to_symbol(name: str | sympy.Symbol) -> sympy.Symbol:
     return sympy.symbols(name)
 
 
-def _to_expr(value: ExprLike) -> sympy.core.basic.Basic:
-    return _as_expr(value)
-
 
 @dataclass(frozen=True)
 class Constraint:
@@ -32,7 +29,7 @@ class Constraint:
 
     @staticmethod
     def set(symbol: str, value: ExprLike) -> "Constraint":
-        return Constraint(kind="set", lhs=symbol, value=_to_expr(value))
+        return Constraint(kind="set", lhs=symbol, value=_as_expr(value))
 
     @staticmethod
     def zero(symbol: str) -> "Constraint":
@@ -50,8 +47,8 @@ class Constraint:
     def equation(lhs_expr: ExprLike, rhs_expr: ExprLike = 0) -> "Constraint":
         return Constraint(
             kind="equation",
-            lhs=sympy.sstr(_to_expr(lhs_expr)),
-            rhs=sympy.sstr(_to_expr(rhs_expr)),
+            lhs=sympy.sstr(_as_expr(lhs_expr)),
+            rhs=sympy.sstr(_as_expr(rhs_expr)),
         )
 
 
@@ -115,9 +112,7 @@ def compile_constraints(constraints: list[Constraint]) -> CompiledConstraints:
         representative = find(lhs_symbol)
         resolved_value = sympy.simplify(constraint.value.subs(alias_items))
         if representative in set_substitutions:
-            lhs_expr = cast(sympy.Expr, sympy.sympify(set_substitutions[representative]))
-            rhs_expr = cast(sympy.Expr, sympy.sympify(resolved_value))
-            if sympy.simplify(lhs_expr - rhs_expr) != 0:
+            if sympy.simplify(sympy.sympify(set_substitutions[representative]) - sympy.sympify(resolved_value)) != 0:
                 raise ValueError(
                     f"Conflicting assignments for {representative}: "
                     f"{set_substitutions[representative]} and {resolved_value}"
@@ -133,10 +128,9 @@ def compile_constraints(constraints: list[Constraint]) -> CompiledConstraints:
     for constraint in constraints:
         if constraint.kind != "equation":
             continue
-        lhs_expr = cast(sympy.Expr, sympy.sympify(_to_expr(constraint.lhs)))
-        rhs_raw = sympy.Integer(0) if constraint.rhs is None else _to_expr(constraint.rhs)
-        rhs_expr = cast(sympy.Expr, sympy.sympify(rhs_raw))
-        expression = sympy.simplify(sympy.expand((lhs_expr - rhs_expr).subs(substitution_items)))
+        lhs_expr = sympy.sympify(_as_expr(constraint.lhs))
+        rhs_raw = sympy.Integer(0) if constraint.rhs is None else _as_expr(constraint.rhs)
+        expression = sympy.simplify(sympy.expand((lhs_expr - rhs_raw).subs(substitution_items)))
         if expression != 0:
             equations.append(expression)
 

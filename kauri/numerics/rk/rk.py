@@ -90,30 +90,6 @@ def _rk_symbolic_weights_map(
     return Map(lambda x: _rk_symbolic_weight(x, s, explicit, a_mask, b_mask))
 
 
-def _validate_symbolic_args(
-    t: Tree | Forest | ForestSum | int | float,
-    s: int,
-    explicit: bool,
-    a_mask: list | None,
-    b_mask: list | None,
-    mathematica_code: bool,
-    rationalise: bool,
-) -> None:
-    if not isinstance(t, (int, float, Tree, Forest, ForestSum)):
-        raise TypeError("t must be a Tree, Forest, ForestSum, int or float, not " + str(type(t)))
-    if not isinstance(s, int):
-        raise TypeError("Number of stages s must be an int, not " + str(type(s)))
-    if not isinstance(explicit, bool):
-        raise TypeError("explicit must be a bool, not " + str(type(explicit)))
-    if not (isinstance(a_mask, list) or a_mask is None):
-        raise TypeError("a_mask must be a list, not " + str(type(a_mask)))
-    if not (isinstance(b_mask, list) or b_mask is None):
-        raise TypeError("b_mask must be a list, not " + str(type(a_mask)))
-    if not isinstance(mathematica_code, bool):
-        raise TypeError("mathematica_code must be a bool, not " + str(type(mathematica_code)))
-    if not isinstance(rationalise, bool):
-        raise TypeError("rationalise must be a bool, not " + str(type(rationalise)))
-
 
 def _normalize_tree_like_input(
     t: Tree | Forest | ForestSum | int | float,
@@ -146,15 +122,6 @@ def _rk_symbolic_expression(
     mathematica_code: bool = False,
     rationalise: bool = True,
 ) -> sympy.core.basic.Basic | str:
-    _validate_symbolic_args(
-        t=t,
-        s=s,
-        explicit=explicit,
-        a_mask=a_mask,
-        b_mask=b_mask,
-        mathematica_code=mathematica_code,
-        rationalise=rationalise,
-    )
     normalized_t = _normalize_tree_like_input(t)
     weights_map = _rk_symbolic_weights_map(s, explicit, a_mask, b_mask)
     if subtract_exact:
@@ -343,10 +310,6 @@ class RK:
     """
 
     def __init__(self, a, b, name=None):
-        if not isinstance(a, (list, np.ndarray)):
-            raise TypeError("a must be a list or array, not " + str(type(a)))
-        if not isinstance(b, (list, np.ndarray)):
-            raise TypeError("b must be a list or array, not " + str(type(a)))
 
         self.name = name
         self.s = len(b)
@@ -376,20 +339,27 @@ class RK:
         out += repr(self.b)
         return out
 
+    def _rationalised_tableau(
+        self,
+    ) -> tuple[
+        list[sympy.core.basic.Basic],
+        list[list[sympy.core.basic.Basic]],
+        list[sympy.core.basic.Basic],
+    ]:
+        c_vector = [sympy.nsimplify(value, rational=True) for value in self.c]
+        a_matrix = [
+            [sympy.nsimplify(self.a[i][j], rational=True) for j in range(self.s)]
+            for i in range(self.s)
+        ]
+        b_vector = [sympy.nsimplify(value, rational=True) for value in self.b]
+        return c_vector, a_matrix, b_vector
+
     def to_text(
         self, mode: Literal["structure", "symbolic"] = "structure", max_cell_chars: int = 48
     ) -> str:
         from kauri.numerics.rk.rk_maker_format import format_tableau_text
 
-        c_vector: list[sympy.core.basic.Basic] = [
-            sympy.nsimplify(value, rational=True) for value in self.c
-        ]
-        a_matrix: list[list[sympy.core.basic.Basic]] = [
-            [sympy.nsimplify(self.a[i][j], rational=True) for j in range(self.s)] for i in range(self.s)
-        ]
-        b_vector: list[sympy.core.basic.Basic] = [
-            sympy.nsimplify(value, rational=True) for value in self.b
-        ]
+        c_vector, a_matrix, b_vector = self._rationalised_tableau()
         return format_tableau_text(
             c_vector=c_vector,
             a_matrix=a_matrix,
@@ -403,15 +373,7 @@ class RK:
     ) -> str:
         from kauri.numerics.rk.rk_maker_format import format_tableau_latex
 
-        c_vector: list[sympy.core.basic.Basic] = [
-            sympy.nsimplify(value, rational=True) for value in self.c
-        ]
-        a_matrix: list[list[sympy.core.basic.Basic]] = [
-            [sympy.nsimplify(self.a[i][j], rational=True) for j in range(self.s)] for i in range(self.s)
-        ]
-        b_vector: list[sympy.core.basic.Basic] = [
-            sympy.nsimplify(value, rational=True) for value in self.b
-        ]
+        c_vector, a_matrix, b_vector = self._rationalised_tableau()
         return format_tableau_latex(
             c_vector=c_vector,
             a_matrix=a_matrix,
@@ -541,19 +503,6 @@ class RK:
         :rtype: list | array
         """
 
-        if not isinstance(y0, (list, np.ndarray)):
-            raise TypeError("y0 must be a list or array, not " + str(type(y0)))
-        if not isinstance(t0, float):
-            raise TypeError("t0 must be a float, not " + str(type(t0)))
-        if not callable(f):
-            raise TypeError("f must be callable")
-        if not isinstance(h, float):
-            raise TypeError("h must be a float, not " + str(type(h)))
-        if not isinstance(tol, float):
-            raise TypeError("tol must be a float, not " + str(type(tol)))
-        if not isinstance(max_iter, int):
-            raise TypeError("max_iter must be an int, not " + str(type(max_iter)))
-
         def f_(t_, y_):
             return np.array(f(t_, y_))
 
@@ -604,27 +553,6 @@ class RK:
         :return: t_vals, y_vals - the lists of values of t and y respectively
         :rtype: tuple[list, list]
         """
-
-        if not isinstance(y0, (list, np.ndarray)):
-            raise TypeError("y0 must be a list or array, not " + str(type(y0)))
-        if not isinstance(t0, float):
-            raise TypeError("t0 must be a float, not " + str(type(t0)))
-        if not isinstance(t_end, float):
-            raise TypeError("t_end must be a float, not " + str(type(t0)))
-        if not callable(f):
-            raise TypeError("f must be callable")
-        if not isinstance(n, int):
-            raise TypeError("n must be an int, not " + str(type(n)))
-        if not isinstance(tol, float):
-            raise TypeError("tol must be a float, not " + str(type(tol)))
-        if not isinstance(max_iter, int):
-            raise TypeError("max_iter must be an int, not " + str(type(max_iter)))
-        if not (isinstance(plot, bool) or plot is None):
-            raise TypeError("plot must be a bool, not " + str(type(plot)))
-        if not (isinstance(plot_dims, (list, np.ndarray)) or plot_dims is None):
-            raise TypeError("plot_dims must be a list or array, not " + str(type(plot_dims)))
-        if not (isinstance(plot_kwargs, dict) or plot_kwargs is None):
-            raise TypeError("plot_kwargs must be a dict, not " + str(type(plot_kwargs)))
 
         if plot_kwargs is None:
             plot_kwargs = {}
@@ -677,9 +605,6 @@ class RK:
 
         :rtype: RK
         """
-        if not isinstance(other, RK):
-            raise TypeError("Cannot compose RK and object of type " + str(type(other)))
-
         s1 = other.s
         a1 = other.a
         b1 = other.b
@@ -713,11 +638,6 @@ class RK:
         :type exponent: int
         :rtype: RK
         """
-        if not isinstance(exponent, int):
-            raise TypeError(
-                "Exponent in RK power must be int, got " + str(type(exponent)) + " instead."
-            )
-
         if exponent == 0:
             return RK([[0]], [0])
 
@@ -801,9 +721,6 @@ class RK:
         :type limit: int
         :rtype: int
         """
-        if not isinstance(tol, float):
-            raise TypeError("tol must be a float, not " + str(type(tol)))
-
         theta = self.elementary_weights_map().log()
         n = 0
         while True:
@@ -826,9 +743,6 @@ class RK:
         :type limit: int
         :rtype: int
         """
-
-        if not isinstance(tol, float):
-            raise TypeError("tol must be a float, not " + str(type(tol)))
 
         ew = self.elementary_weights_map()
         m = (ew & sign) * ew

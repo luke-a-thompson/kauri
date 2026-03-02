@@ -3,7 +3,7 @@ Pluggable ansatz abstractions for RK method construction.
 """
 
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Protocol
 
 import sympy
 
@@ -24,6 +24,12 @@ class Ansatz(Protocol):
     def extra_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
         """
         Return additional substitutions applied before solving.
+        """
+        ...
+
+    def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
+        """
+        Return the primary symbols to solve for, or None to use default explicit-RK symbols.
         """
         ...
 
@@ -49,14 +55,13 @@ class IdentityAnsatz:
     name: str = "standard_explicit"
 
     def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
-        if stages <= 0:
-            raise ValueError("stages must be positive")
         return []
 
     def extra_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
-        if stages <= 0:
-            raise ValueError("stages must be positive")
         return {}
+
+    def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
+        return None
 
     def post_validate(
         self,
@@ -65,12 +70,8 @@ class IdentityAnsatz:
         solver: str,
         tol: float,
     ) -> bool:
-        if stages <= 0:
-            raise ValueError("stages must be positive")
         if tol < 0:
             raise ValueError("tol must be non-negative")
-        _ = named_solution
-        _ = solver
         return True
 
 
@@ -99,12 +100,23 @@ class CompositeAnsatz:
             substitutions = ansatz.extra_substitutions(stages)
             for symbol, value in substitutions.items():
                 if symbol in merged:
-                    lhs = cast(sympy.Expr, sympy.sympify(merged[symbol]))
-                    rhs = cast(sympy.Expr, sympy.sympify(value))
-                    if sympy.simplify(lhs - rhs) != 0:
+                    if sympy.simplify(sympy.sympify(merged[symbol]) - sympy.sympify(value)) != 0:
                         raise ValueError(f"Conflicting ansatz substitutions for {symbol}")
                 merged[symbol] = sympy.sympify(value)
         return merged
+
+    def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
+        combined: list[sympy.Symbol] = []
+        for ansatz in self.ansatzes:
+            symbols = ansatz.solve_symbols(stages)
+            if symbols is None:
+                continue
+            for symbol in symbols:
+                if symbol not in combined:
+                    combined.append(symbol)
+        if len(combined) == 0:
+            return None
+        return combined
 
     def post_validate(
         self,
