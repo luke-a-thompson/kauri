@@ -15,6 +15,7 @@
 
 """Utilities for constructing explicit Runge--Kutta methods from rooted-tree order conditions."""
 
+import time
 from dataclasses import dataclass
 
 import sympy
@@ -63,9 +64,7 @@ class RKMakerResult:
     ) -> str:
         from kauri.numerics.rk.rk_maker_format import result_to_latex
 
-        return result_to_latex(
-            self, max_cell_chars=max_cell_chars, standalone=standalone
-        )
+        return result_to_latex(self, max_cell_chars=max_cell_chars, standalone=standalone)
 
 
 @dataclass
@@ -73,6 +72,7 @@ class GrobnerSolveResult:
     solutions: list[dict[sympy.Symbol, sympy.core.basic.Basic]]
     free_symbols: list[sympy.Symbol]
     free_symbol_relations: list[sympy.core.basic.Basic]
+
 
 def explicit_unknown_symbols(stages: int) -> tuple[list[sympy.Symbol], list[sympy.Symbol]]:
     """
@@ -152,7 +152,10 @@ def _merge_substitution_maps(
         for symbol, value in substitutions.items():
             resolved_value = sympy.sympify(value)
             if symbol in merged:
-                if sympy.simplify(sympy.sympify(merged[symbol]) - sympy.sympify(resolved_value)) != 0:
+                if (
+                    sympy.simplify(sympy.sympify(merged[symbol]) - sympy.sympify(resolved_value))
+                    != 0
+                ):
                     raise ValueError(f"Conflicting substitutions for {symbol}")
             merged[symbol] = resolved_value
     return merged
@@ -183,30 +186,6 @@ def _split_dependent_and_free_symbols(
     return dependent_symbols, free_symbols
 
 
-def _relations_among_free_symbols(
-    equations: list[sympy.core.basic.Basic],
-    dependent_symbols: list[sympy.Symbol],
-    free_symbols: list[sympy.Symbol],
-) -> list[sympy.core.basic.Basic]:
-    if len(free_symbols) == 0:
-        return []
-    variable_order = dependent_symbols + free_symbols
-
-    polys = [sympy.Poly(sympy.nsimplify(e), *variable_order, domain="QQ") for e in equations]
-    elimination_basis = sympy.groebner(
-        polys, *variable_order, order="grevlex", domain="QQ", method="f5b"
-    )
-    free_set = set(free_symbols)
-    relations: list[sympy.core.basic.Basic] = []
-    for poly in elimination_basis.polys:
-        expr = sympy.sympify(poly.as_expr())
-        if expr == 0:
-            continue
-        if expr.free_symbols.issubset(free_set):
-            relations.append(sympy.expand(expr))
-    return relations
-
-
 def _solve_with_grobner(
     equations: list[sympy.core.basic.Basic],
     unknown_symbols: list[sympy.Symbol],
@@ -216,18 +195,34 @@ def _solve_with_grobner(
         return GrobnerSolveResult(solutions=[], free_symbols=[], free_symbol_relations=[])
 
     polys = [sympy.Poly(sympy.nsimplify(e), *unknown_symbols, domain="QQ") for e in equations]
-    grobner_basis = sympy.groebner(polys, *unknown_symbols, order="lex", domain="QQ", method="f5b")
+    t0 = time.perf_counter()
+    grobner_basis = sympy.groebner(
+        polys, *unknown_symbols, order="grevlex", domain="QQ", method="f5b"
+    )
+    t_groebner = time.perf_counter() - t0
+    print(f"[timing] groebner basis: {t_groebner:.3f}s")
+
     dependent_symbols, free_symbols = _split_dependent_and_free_symbols(
         grobner_basis, unknown_symbols
     )
-    relations = _relations_among_free_symbols(equations, dependent_symbols, free_symbols)
 
+    free_set = set(free_symbols)
+    relations: list[sympy.core.basic.Basic] = [
+        sympy.expand(expr)
+        for poly in grobner_basis.polys
+        if (expr := sympy.sympify(poly.as_expr())) != 0
+        and expr.free_symbols.issubset(free_set)
+    ]
+
+    t1 = time.perf_counter()
     if grobner_basis.is_zero_dimensional:
         raw_solutions = sympy.solve(list(grobner_basis), unknown_symbols, dict=True)
     elif len(dependent_symbols) == 0:
         raw_solutions = [{}]
     else:
         raw_solutions = sympy.solve(list(grobner_basis), dependent_symbols, dict=True)
+    t_solve = time.perf_counter() - t1
+    print(f"[timing] solve:          {t_solve:.3f}s")
 
     if max_solutions is not None:
         raw_solutions = raw_solutions[:max_solutions]
@@ -236,11 +231,10 @@ def _solve_with_grobner(
         solutions=raw_solutions, free_symbols=free_symbols, free_symbol_relations=relations
     )
 
+
 def _solution_is_numeric(named_solution: dict[str, sympy.core.basic.Basic]) -> bool:
     """Return True when every value in the solution is a concrete number (no free symbols)."""
-    return all(
-        not sympy.sympify(value).free_symbols for value in named_solution.values()
-    )
+    return all(not sympy.sympify(value).free_symbols for value in named_solution.values())
 
 
 def _construct_explicit_tableau(
@@ -325,7 +319,9 @@ def make_explicit_rk_methods(
     for symbol, value in assignments.items():
         resolved_value = sympy.sympify(value)
         if symbol in substitutions_map:
-            equations.append(sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value)))
+            equations.append(
+                sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value))
+            )
         else:
             substitutions_map[symbol] = resolved_value
     substitutions = list(substitutions_map.items())
@@ -335,9 +331,7 @@ def make_explicit_rk_methods(
     active_symbols = _free_symbols_in_equations(reduced_equations, all_symbols)
     active_symbols = [symbol for symbol in active_symbols if symbol not in substitutions_map]
 
-    grobner_result = _solve_with_grobner(
-        reduced_equations, active_symbols, max_solutions
-    )
+    grobner_result = _solve_with_grobner(reduced_equations, active_symbols, max_solutions)
     raw_solutions = grobner_result.solutions
     free_symbols = grobner_result.free_symbols
     free_symbol_relations = grobner_result.free_symbol_relations
@@ -382,7 +376,9 @@ def make_explicit_rk_methods(
         named_solutions.append(named)
         if _solution_is_numeric(named):
             a_matrix, b_vector = _construct_explicit_tableau(stages, named)
-            methods.append(RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}"))
+            methods.append(
+                RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}")
+            )
 
     fixings: dict[str, sympy.core.basic.Basic] = {
         str(symbol): value for symbol, value in assignments.items()
