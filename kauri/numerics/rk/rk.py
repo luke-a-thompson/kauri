@@ -20,6 +20,7 @@ Runge-Kutta Schemes
 import copy
 import warnings
 from collections.abc import Callable
+
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy
@@ -27,8 +28,8 @@ from scipy.optimize import root
 from tqdm import tqdm
 
 from kauri.hopf_algebras.bck import counit
-from kauri.trees.gentrees import trees_of_order
 from kauri.hopf_algebras.maps import Map, exact_weights, sign
+from kauri.trees.gentrees import trees_of_order
 from kauri.trees.trees import Forest, ForestSum, Tree
 
 
@@ -86,7 +87,6 @@ def _rk_symbolic_weights_map(
     s: int, explicit: bool = False, a_mask: list | None = None, b_mask: list | None = None
 ) -> Map:
     return Map(lambda x: _rk_symbolic_weight(x, s, explicit, a_mask, b_mask))
-
 
 
 def _normalize_tree_like_input(
@@ -282,7 +282,9 @@ def rk_symbolic_weight_for_tableau(
     substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
     for i_idx in range(stages):
         for j_idx in range(stages):
-            substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.sympify(a_tableau[i_idx][j_idx])
+            substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.sympify(
+                a_tableau[i_idx][j_idx]
+            )
     for i_idx in range(stages):
         substitutions[sympy.symbols(f"b{i_idx}")] = sympy.sympify(b_weights[i_idx])
     symbolic = rk_symbolic_weight(t=t, s=stages, explicit=explicit, rationalise=False)
@@ -373,15 +375,6 @@ class RK:
             b_vector=b_vector,
             max_cell_chars=max_cell_chars,
         )
-
-    def to_cf(self, tol: float = 1e-12) -> "Williamson2NCF":
-        """
-        Lift this explicit RK method to its commutator-free Lie-group form
-        via the Williamson 2N representation.
-        """
-        from kauri.numerics.cf.cf_williamson import lift_to_cf, rk_to_williamson_2n
-
-        return lift_to_cf(rk_to_williamson_2n(self, tol=tol))
 
     def _check_explicit(self):
         for i in range(self.s):

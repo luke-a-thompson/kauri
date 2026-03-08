@@ -21,7 +21,14 @@ import itertools
 from functools import cache
 
 from kauri.hopf_algebras.generic_algebra import _forest_apply
-from kauri.trees.trees import EMPTY_FOREST, EMPTY_FOREST_SUM, EMPTY_TREE, Forest, TensorProductSum, Tree
+from kauri.trees.trees import (
+    EMPTY_FOREST,
+    EMPTY_FOREST_SUM,
+    EMPTY_TREE,
+    Forest,
+    TensorProductSum,
+    Tree,
+)
 
 
 def _counit(t):

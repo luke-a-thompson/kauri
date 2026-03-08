@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.numerics.rk.rk_ansatz import Ansatz
+from kauri.numerics.rk.rk_ansatz import BaseAnsatz
 
 
 def generate_2n_polynomial_constraints(stages: int) -> list[sympy.core.basic.Basic]:
@@ -29,7 +29,6 @@ def generate_2n_polynomial_constraints(stages: int) -> list[sympy.core.basic.Bas
 def is_2n_tableau(
     a_matrix: list[list[sympy.core.basic.Basic | int | float]],
     b_vector: list[sympy.core.basic.Basic | int | float],
-    tol: float = 1e-10,
 ) -> bool:
     """
     Check whether an explicit RK tableau satisfies the 2N polynomial constraints.
@@ -37,8 +36,6 @@ def is_2n_tableau(
     stages = len(b_vector)
     if len(a_matrix) != stages or any(len(row) != stages for row in a_matrix):
         raise ValueError("a_matrix must be a square stages x stages matrix")
-    if tol < 0:
-        raise ValueError("tol must be non-negative")
 
     substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
     for i_idx in range(stages):
@@ -74,22 +71,18 @@ def _b_expr_from_ab(stages: int) -> list[sympy.core.basic.Basic]:
     b_expr[stages - 1] = sympy.symbols(f"B{stages - 1}")
     for i_idx in range(stages - 2, -1, -1):
         b_expr[i_idx] = sympy.simplify(
-            sympy.symbols(f"A{i_idx + 1}") * b_expr[i_idx + 1]
-            + sympy.symbols(f"B{i_idx}")
+            sympy.symbols(f"A{i_idx + 1}") * b_expr[i_idx + 1] + sympy.symbols(f"B{i_idx}")
         )
     return b_expr
 
 
 @dataclass
-class WilliamsonAnsatz(Ansatz):
+class WilliamsonAnsatz(BaseAnsatz):
     """
     Low-storage 2N ansatz with Williamson coefficients as primary unknowns.
     """
 
     validate_2n_polynomials: bool = True
-
-    def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
-        return []
 
     def extra_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
         substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
@@ -98,7 +91,9 @@ class WilliamsonAnsatz(Ansatz):
         for i_idx in range(stages):
             substitutions[sympy.symbols(f"b{i_idx}")] = sympy.simplify(b_expr[i_idx])
             for j_idx in range(stages):
-                substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.simplify(a_expr[i_idx][j_idx])
+                substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.simplify(
+                    a_expr[i_idx][j_idx]
+                )
         return substitutions
 
     def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
@@ -110,10 +105,7 @@ class WilliamsonAnsatz(Ansatz):
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        tol: float,
     ) -> bool:
-        if tol < 0:
-            raise ValueError("tol must be non-negative")
         if not self.validate_2n_polynomials:
             return True
         subs = {sympy.symbols(k): sympy.sympify(v) for k, v in named_solution.items()}

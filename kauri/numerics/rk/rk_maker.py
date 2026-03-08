@@ -21,12 +21,12 @@ from dataclasses import dataclass
 import sympy
 
 from kauri.hopf_algebras.bck import counit
-from kauri.trees.gentrees import trees_up_to_order
 from kauri.hopf_algebras.maps import sign
 from kauri.numerics.rk.rk import RK, _rk_symbolic_weights_map, rk_order_cond
-from kauri.numerics.rk.rk_ansatz import Ansatz, IdentityAnsatz
+from kauri.numerics.rk.rk_ansatz import BaseAnsatz
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
+from kauri.trees.gentrees import trees_up_to_order
 from kauri.trees.trees import Tree
 
 
@@ -210,8 +210,7 @@ def _solve_with_grobner(
     relations: list[sympy.core.basic.Basic] = [
         sympy.expand(expr)
         for poly in grobner_basis.polys
-        if (expr := sympy.sympify(poly.as_expr())) != 0
-        and expr.free_symbols.issubset(free_set)
+        if (expr := sympy.sympify(poly.as_expr())) != 0 and expr.free_symbols.issubset(free_set)
     ]
 
     t1 = time.perf_counter()
@@ -266,13 +265,12 @@ def make_explicit_rk_methods(
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
-    ansatz: Ansatz | None = None,
+    ansatz: BaseAnsatz | None = None,
     constraints: list[Constraint] | None = None,
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
-    ansatz_validation_tol: float = 1e-10,
 ) -> RKMakerResult:
     """
     Construct explicit RK methods of requested order and stage count.
@@ -289,8 +287,6 @@ def make_explicit_rk_methods(
         raise ValueError("stages must be positive")
     if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
         raise ValueError("antisymmetric_order must be positive")
-    if ansatz_validation_tol < 0:
-        raise ValueError("ansatz_validation_tol must be non-negative")
 
     equations, trees = generate_explicit_order_equations(order, stages, rationalise=True)
     if antisymmetric_order is not None:
@@ -299,7 +295,7 @@ def make_explicit_rk_methods(
         )
         equations = equations + antisymmetric_equations
         trees = trees + antisymmetric_trees
-    ansatz_used: Ansatz = IdentityAnsatz() if ansatz is None else ansatz
+    ansatz_used: BaseAnsatz = BaseAnsatz() if ansatz is None else ansatz
     equations = equations + ansatz_used.extra_equations(stages=stages)
 
     compiled_constraints = compile_constraints(constraints if constraints is not None else [])
@@ -370,7 +366,6 @@ def make_explicit_rk_methods(
         if not ansatz_used.post_validate(
             stages=stages,
             named_solution=named,
-            tol=ansatz_validation_tol,
         ):
             continue
         named_solutions.append(named)

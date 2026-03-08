@@ -10,6 +10,7 @@ from itertools import product
 
 import sympy
 
+from kauri.hopf_algebras.utils import _as_expr, _simplify_expanded
 from kauri.numerics.planar_trees.mkw_ees_spec import counit_planar, sign_for_tree
 from kauri.numerics.planar_trees.planar_basis import (
     EMPTY_ORDERED_FOREST,
@@ -18,7 +19,6 @@ from kauri.numerics.planar_trees.planar_basis import (
     OrderedForestSum,
     PlanarTree,
 )
-from kauri.hopf_algebras.utils import _as_expr, _simplify_expanded
 
 
 @dataclass(frozen=True)
@@ -95,9 +95,7 @@ class MKWMap:
         if isinstance(value, OrderedForestSum):
             out_sum: sympy.core.basic.Basic = sympy.Integer(0)
             for coeff, forest in value.term_list:
-                out_sum = sympy.expand(
-                    _as_expr(out_sum) + _as_expr(coeff) * _as_expr(self(forest))
-                )
+                out_sum = sympy.expand(_as_expr(out_sum) + _as_expr(coeff) * _as_expr(self(forest)))
             return _simplify_expanded(out_sum)
         raise TypeError(f"Unsupported value type for MKWMap: {type(value)}")
 
@@ -108,9 +106,7 @@ class MKWMap:
                 coeff_expr = _as_expr(term.coeff)
                 left_expr = _as_expr(self(term.left))
                 right_expr = _as_expr(other(term.right))
-                out = sympy.expand(
-                    _as_expr(out) + coeff_expr * left_expr * right_expr
-                )
+                out = sympy.expand(_as_expr(out) + coeff_expr * left_expr * right_expr)
             return _simplify_expanded(out)
 
         return MKWMap(conv)

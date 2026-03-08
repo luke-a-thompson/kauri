@@ -10,7 +10,6 @@ Run with:
 """
 
 import sympy
-
 from kauri.numerics.rk import RKMakerResult, make_explicit_rk_methods
 from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
 

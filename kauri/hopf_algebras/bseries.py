@@ -84,8 +84,8 @@ from functools import cache
 
 import sympy as sp
 
-from kauri.trees.gentrees import trees_up_to_order
 from kauri.hopf_algebras.maps import Map
+from kauri.trees.gentrees import trees_up_to_order
 from kauri.trees.trees import Tree
 
 

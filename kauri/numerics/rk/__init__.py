@@ -1,7 +1,7 @@
 """Runge-Kutta methods and synthesis tools."""
 
 from kauri.numerics.rk.rk import RK, rk_order_cond, rk_symbolic_weight
-from kauri.numerics.rk.rk_ansatz import CompositeAnsatz, IdentityAnsatz
+from kauri.numerics.rk.rk_ansatz import BaseAnsatz, CompositeAnsatz
 from kauri.numerics.rk.rk_constraints import CompiledConstraints, Constraint, compile_constraints
 from kauri.numerics.rk.rk_maker import (
     RKMakerResult,

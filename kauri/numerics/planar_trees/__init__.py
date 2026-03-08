@@ -8,4 +8,7 @@ from kauri.numerics.planar_trees.planar_basis import (
     PlanarTree,
     TensorOrderedSum,
 )
-from kauri.numerics.planar_trees.planar_gentrees import planar_trees_of_order, planar_trees_up_to_order
+from kauri.numerics.planar_trees.planar_gentrees import (
+    planar_trees_of_order,
+    planar_trees_up_to_order,
+)

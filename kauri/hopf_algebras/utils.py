@@ -262,4 +262,3 @@ def _as_expr(value: sp.Basic | int | float) -> sp.Expr:
 
 def _simplify_expanded(value: sp.Basic | int | float) -> sp.Basic:
     return sp.simplify(sp.expand(sp.sympify(value)))
-

@@ -1,7 +1,6 @@
 import unittest
 
 import sympy
-
 from kauri import make_explicit_rk_methods
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 from kauri.numerics.rk.williamson_ansatz import (

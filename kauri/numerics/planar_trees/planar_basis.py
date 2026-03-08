@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.trees.trees import Tree
 from kauri.hopf_algebras.utils import _check_valid, _nodes, _to_labelled_tuple
+from kauri.trees.trees import Tree
 
 
 @dataclass(frozen=True)
@@ -99,7 +99,8 @@ class OrderedForestSum:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, "term_list",
+            self,
+            "term_list",
             tuple((sympy.sympify(c), f) for c, f in self.term_list),
         )
 

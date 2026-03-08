@@ -9,7 +9,6 @@ import sympy
 
 from kauri.hopf_algebras.utils import _as_expr
 
-
 ExprLike = sympy.core.basic.Basic | int | float | str
 
 
@@ -17,7 +16,6 @@ def _to_symbol(name: str | sympy.Symbol) -> sympy.Symbol:
     if isinstance(name, sympy.Symbol):
         return name
     return sympy.symbols(name)
-
 
 
 @dataclass(frozen=True)
@@ -112,7 +110,12 @@ def compile_constraints(constraints: list[Constraint]) -> CompiledConstraints:
         representative = find(lhs_symbol)
         resolved_value = sympy.simplify(constraint.value.subs(alias_items))
         if representative in set_substitutions:
-            if sympy.simplify(sympy.sympify(set_substitutions[representative]) - sympy.sympify(resolved_value)) != 0:
+            if (
+                sympy.simplify(
+                    sympy.sympify(set_substitutions[representative]) - sympy.sympify(resolved_value)
+                )
+                != 0
+            ):
                 raise ValueError(
                     f"Conflicting assignments for {representative}: "
                     f"{set_substitutions[representative]} and {resolved_value}"

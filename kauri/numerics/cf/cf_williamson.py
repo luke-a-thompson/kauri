@@ -8,12 +8,12 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.numerics.rk.rk import RK
 from kauri.hopf_algebras.utils import _as_expr
+from kauri.numerics.rk.rk import RK
 
 
 @dataclass(frozen=True)
-class Williamson2N:
+class WilliamsonRK:
     """
     Williamson 2N parameters coupled with equivalent RK tableau.
     """
@@ -26,9 +26,25 @@ class Williamson2N:
     B: list[sympy.core.basic.Basic]
     name: str
 
+    def to_cf(self) -> WilliamsonCF:
+        """
+        Lift this Williamson RK method to its commutator-free Lie-group form.
+        """
+        stage_nodes: list[sympy.core.basic.Basic] = [sympy.simplify(value) for value in self.c]
+        storage_a: list[sympy.core.basic.Basic] = [sympy.simplify(value) for value in self.A]
+        exp_coeffs: list[sympy.core.basic.Basic] = [sympy.simplify(value) for value in self.B]
+        return WilliamsonCF(
+            base=self,
+            name=f"{self.name}_cf",
+            stage_nodes=stage_nodes,
+            storage_a=storage_a,
+            exp_coeffs=exp_coeffs,
+            exponentials_per_update=self.stages,
+        )
+
 
 @dataclass(frozen=True)
-class Williamson2NCF:
+class WilliamsonCF:
     """
     Commutator-free lift of a Williamson 2N method.
 
@@ -37,12 +53,18 @@ class Williamson2NCF:
       Y_i  = exp(B_i ΔY_i) Y_{i-1}
     """
 
-    base: Williamson2N
+    base: WilliamsonRK
     name: str
     stage_nodes: list[sympy.core.basic.Basic]
     storage_a: list[sympy.core.basic.Basic]
     exp_coeffs: list[sympy.core.basic.Basic]
     exponentials_per_update: int
+
+    def to_williamson_rk(self) -> WilliamsonRK:
+        """
+        Return the underlying Williamson RK representation.
+        """
+        return self.base
 
     def to_text(self) -> str:
         lines: list[str] = [
@@ -60,20 +82,33 @@ class Williamson2NCF:
             a_value = sympy.sstr(self.storage_a[stage_idx])
             b_value = sympy.sstr(self.exp_coeffs[stage_idx])
             c_value = sympy.sstr(self.stage_nodes[stage_idx])
-            lines.append(
-                f"  K_{stage_num} = F(t + ({c_value})*h, Y_{stage_num - 1})"
-            )
-            lines.append(
-                f"  ΔY_{stage_num} = ({a_value})*ΔY_{stage_num - 1} + h*K_{stage_num}"
-            )
-            lines.append(
-                f"  Y_{stage_num} = exp(({b_value})*ΔY_{stage_num}) * Y_{stage_num - 1}"
-            )
+            lines.append(f"  K_{stage_num} = F(t + ({c_value})*h, Y_{stage_num - 1})")
+            lines.append(f"  ΔY_{stage_num} = ({a_value})*ΔY_{stage_num - 1} + h*K_{stage_num}")
+            lines.append(f"  Y_{stage_num} = exp(({b_value})*ΔY_{stage_num}) * Y_{stage_num - 1}")
         lines.append(f"  Y_(t+h) = Y_{self.base.stages}")
         return "\n".join(lines)
 
+    def elementary_weights_map(self):
+        """
+        Returns the planar-tree character map carried by this lifted method.
+        """
+        from kauri.numerics.planar_trees.mkw_truncated import MKWMap
+        from kauri.numerics.rk.rk import rk_symbolic_weight_for_tableau
 
-def rk_to_williamson_2n(rk: RK, tol: float = 1e-12) -> Williamson2N:
+        a_tableau, b_weights = self.base.a, self.base.b
+
+        def eval_tree(tree):
+            return rk_symbolic_weight_for_tableau(
+                t=tree.to_nonplanar_tree(),
+                a_tableau=a_tableau,
+                b_weights=b_weights,
+                explicit=True,
+            )
+
+        return MKWMap(eval_tree)
+
+
+def rk_to_williamson_2n(rk: RK) -> WilliamsonRK:
     """
     Convert an explicit RK method into Williamson 2N coefficients.
     """
@@ -113,9 +148,9 @@ def rk_to_williamson_2n(rk: RK, tol: float = 1e-12) -> Williamson2N:
         value = sympy.simplify((_as_expr(a_next_prev) - _as_expr(c[i_idx])) / _as_expr(b_i))
         A_params.append(value)
 
-    _verify_williamson_relations(a=a, b=b, A_params=A_params, B=B, tol=tol)
+    _verify_williamson_relations(a=a, b=b, A_params=A_params, B=B)
     method_name: str = rk.name if rk.name is not None else "unnamed_rk"
-    return Williamson2N(
+    return WilliamsonRK(
         stages=stages,
         a=a,
         b=b,
@@ -126,38 +161,11 @@ def rk_to_williamson_2n(rk: RK, tol: float = 1e-12) -> Williamson2N:
     )
 
 
-def lift_to_cf(method: Williamson2N) -> Williamson2NCF:
-    """
-    Lift a Williamson 2N method to its commutator-free Lie-group form.
-    """
-    stage_nodes: list[sympy.core.basic.Basic] = [sympy.simplify(value) for value in method.c]
-    storage_a: list[sympy.core.basic.Basic] = [sympy.simplify(value) for value in method.A]
-    exp_coeffs: list[sympy.core.basic.Basic] = [sympy.simplify(value) for value in method.B]
-    return Williamson2NCF(
-        base=method,
-        name=f"{method.name}_cf",
-        stage_nodes=stage_nodes,
-        storage_a=storage_a,
-        exp_coeffs=exp_coeffs,
-        exponentials_per_update=method.stages,
-    )
-
-
-def cf_to_rk_tableau(
-    method: Williamson2NCF,
-) -> tuple[list[list[sympy.core.basic.Basic]], list[sympy.core.basic.Basic]]:
-    """
-    Extract RK tableau carried by the lifted CF method.
-    """
-    return method.base.a, method.base.b
-
-
 def _verify_williamson_relations(
     a: list[list[sympy.core.basic.Basic]],
     b: list[sympy.core.basic.Basic],
     A_params: list[sympy.core.basic.Basic],
     B: list[sympy.core.basic.Basic],
-    tol: float,
 ) -> None:
     stages: int = len(b)
     for i_idx in range(stages):
@@ -170,12 +178,12 @@ def _verify_williamson_relations(
                     + _as_expr(B[j_idx])
                 )
             residual = sympy.simplify(_as_expr(a[i_idx][j_idx]) - _as_expr(expected))
-            if sympy.simplify(residual) != 0:
+            if residual != 0:
                 raise ValueError("RK tableau does not satisfy Williamson recursion for a_ij.")
     for i_idx in range(stages - 1):
         expected_b = sympy.simplify(
             _as_expr(A_params[i_idx + 1]) * _as_expr(b[i_idx + 1]) + _as_expr(B[i_idx])
         )
         residual_b = sympy.simplify(_as_expr(b[i_idx]) - _as_expr(expected_b))
-        if sympy.simplify(residual_b) != 0:
-                raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")
+        if residual_b != 0:
+            raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")

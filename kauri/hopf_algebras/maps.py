@@ -29,7 +29,13 @@ from kauri.hopf_algebras.bck_impl import _coproduct as bck_coproduct
 from kauri.hopf_algebras.bck_impl import _counit as bck_counit
 from kauri.hopf_algebras.cem_impl import _antipode as cem_antipode
 from kauri.hopf_algebras.cem_impl import _coproduct as cem_coproduct
-from kauri.hopf_algebras.generic_algebra import MapFunc, MapValue, _apply, _func_power, _func_product
+from kauri.hopf_algebras.generic_algebra import (
+    MapFunc,
+    MapValue,
+    _apply,
+    _func_power,
+    _func_product,
+)
 from kauri.trees.trees import EMPTY_TREE, Forest, ForestSum, Tree, _is_tree_like
 
 

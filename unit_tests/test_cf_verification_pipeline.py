@@ -1,6 +1,7 @@
 import unittest
 
 from kauri.numerics.cf.cf_verify import verify_cf_ees
+from kauri.numerics.cf.cf_williamson import rk_to_williamson_2n
 from kauri.numerics.planar_trees.planar_basis import PlanarTree
 from kauri.numerics.planar_trees.planar_gentrees import planar_trees_of_order
 from kauri.numerics.rk.rk_maker import make_explicit_rk_methods
@@ -21,7 +22,7 @@ class CFVerificationPipelineTests(unittest.TestCase):
             self.assertEqual(count, len(trees))
 
     def test_williamson_lift_smoke(self) -> None:
-        cf_method = euler.to_cf()
+        cf_method = rk_to_williamson_2n(euler).to_cf()
         result = verify_cf_ees(cf_method, order=2)
         self.assertFalse(result.passed)
         self.assertGreater(result.checked_elements, 0)
@@ -34,7 +35,7 @@ class CFVerificationPipelineTests(unittest.TestCase):
         )
         self.assertGreaterEqual(len(rk_result.methods), 1)
         for method in rk_result.methods:
-            cf = method.to_cf()
+            cf = rk_to_williamson_2n(method).to_cf()
             verification = verify_cf_ees(cf, order=2)
             self.assertIsNotNone(verification)
             self.assertGreater(verification.checked_elements, 0)

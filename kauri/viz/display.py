@@ -21,8 +21,8 @@ or :class:`TensorProductSum`.
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-from kauri.trees.trees import Forest, ForestSum, TensorProductSum, Tree
 from kauri.hopf_algebras.utils import _branch_level_sequences, _str
+from kauri.trees.trees import Forest, ForestSum, TensorProductSum, Tree
 
 EMPTY_FONTSIZE = 10
 TENSOR_FONTSIZE = 14

@@ -2,80 +2,53 @@
 Pluggable ansatz abstractions for RK method construction.
 """
 
+from abc import ABC
 from dataclasses import dataclass
-from typing import Protocol
 
 import sympy
 
 
-class Ansatz(Protocol):
+class BaseAnsatz(ABC):
     """
-    Protocol for structural RK ansatzes.
+    Base interface for structural RK ansatzes.
     """
 
     def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
         """
         Return additional equations (each interpreted as expr == 0).
         """
-        ...
+        return []
 
     def extra_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
         """
         Return additional substitutions applied before solving.
         """
-        ...
+        return {}
 
     def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
         """
         Return the primary symbols to solve for, or None to use default explicit-RK symbols.
         """
-        ...
-
-    def post_validate(
-        self,
-        stages: int,
-        named_solution: dict[str, sympy.core.basic.Basic],
-        tol: float,
-    ) -> bool:
-        """
-        Validate a candidate solution after solve/verification.
-        """
-        ...
-
-
-@dataclass
-class IdentityAnsatz:
-    """
-    No-op ansatz used as default.
-    """
-
-    def extra_equations(self, stages: int) -> list[sympy.core.basic.Basic]:
-        return []
-
-    def extra_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
-        return {}
-
-    def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
         return None
 
     def post_validate(
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        tol: float,
     ) -> bool:
-        if tol < 0:
-            raise ValueError("tol must be non-negative")
+        """
+        Validate a candidate solution after solve/verification.
+        """
         return True
 
 
 @dataclass
-class CompositeAnsatz:
+class CompositeAnsatz(BaseAnsatz):
     """
     Compose multiple ansatzes into one.
     """
 
-    ansatzes: list[Ansatz]
+    ansatzes: list[BaseAnsatz]
 
     def __post_init__(self) -> None:
         if len(self.ansatzes) == 0:
@@ -115,9 +88,8 @@ class CompositeAnsatz:
         self,
         stages: int,
         named_solution: dict[str, sympy.core.basic.Basic],
-        tol: float,
     ) -> bool:
         return all(
-            ansatz.post_validate(stages=stages, named_solution=named_solution, tol=tol)
+            ansatz.post_validate(stages=stages, named_solution=named_solution)
             for ansatz in self.ansatzes
         )
