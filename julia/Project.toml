@@ -1,0 +1,9 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ExponentialUtilities = "d4d017d3-3776-5f7e-afef-a10c40355c18"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+OrdinaryDiffEqCore = "bbf590c4-e513-4bbe-9b18-05decba2e5d8"
+OrdinaryDiffEqLinear = "521117fe-8c41-49f8-b3b6-30780b3f0fb5"
+SciMLOperators = "c0aeaf25-5076-4817-a8d5-81caf7dfa961"
