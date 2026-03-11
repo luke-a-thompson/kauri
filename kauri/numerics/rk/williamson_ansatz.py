@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.numerics.rk.rk_ansatz import BaseAnsatz
+from kauri.numerics.rk.rk_ansatz import ExplicitAnsatz
 
 
 def generate_2n_polynomial_constraints(stages: int) -> list[sympy.core.basic.Basic]:
@@ -77,14 +77,14 @@ def _b_expr_from_ab(stages: int) -> list[sympy.core.basic.Basic]:
 
 
 @dataclass
-class WilliamsonAnsatz(BaseAnsatz):
+class WilliamsonAnsatz(ExplicitAnsatz):
     """
     Low-storage 2N ansatz with Williamson coefficients as primary unknowns.
     """
 
     validate_2n_polynomials: bool = True
 
-    def extra_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
+    def tableau_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
         substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
         a_expr = _a_expr_from_ab(stages)
         b_expr = _b_expr_from_ab(stages)
@@ -96,7 +96,7 @@ class WilliamsonAnsatz(BaseAnsatz):
                 )
         return substitutions
 
-    def solve_symbols(self, stages: int) -> list[sympy.Symbol] | None:
+    def unknown_symbols(self, stages: int) -> list[sympy.Symbol]:
         return [sympy.symbols(f"B{i_idx}") for i_idx in range(stages)] + [
             sympy.symbols(f"A{i_idx}") for i_idx in range(1, stages)
         ]

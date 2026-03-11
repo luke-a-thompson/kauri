@@ -20,13 +20,16 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.hopf_algebras.bck import counit
-from kauri.hopf_algebras.maps import sign
-from kauri.numerics.rk.rk import RK, _rk_symbolic_weights_map, rk_order_cond
-from kauri.numerics.rk.rk_ansatz import BaseAnsatz
+from kauri.numerics.rk.rk import RK
+from kauri.numerics.rk.rk_ansatz import (
+    BaseAnsatz,
+    ExplicitAnsatz,
+    explicit_unknown_symbols as explicit_unknown_symbols_from_ansatz,
+    generate_explicit_antisymmetric_equations as generate_explicit_antisymmetric_equations_from_ansatz,
+    generate_explicit_order_equations as generate_explicit_order_equations_from_ansatz,
+)
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
-from kauri.trees.gentrees import trees_up_to_order
 from kauri.trees.trees import Tree
 
 
@@ -78,12 +81,7 @@ def explicit_unknown_symbols(stages: int) -> tuple[list[sympy.Symbol], list[symp
     """
     Return strict lower-triangular A symbols and b symbols for explicit RK.
     """
-    if stages <= 0:
-        raise ValueError("stages must be positive")
-
-    a_symbols = [sympy.symbols(f"a{i}{j}") for i in range(stages) for j in range(i)]
-    b_symbols = [sympy.symbols(f"b{i}") for i in range(stages)]
-    return a_symbols, b_symbols
+    return explicit_unknown_symbols_from_ansatz(stages)
 
 
 def generate_explicit_order_equations(
@@ -92,15 +90,7 @@ def generate_explicit_order_equations(
     """
     Generate rooted-tree order equations for explicit RK up to given order.
     """
-    if order <= 0:
-        raise ValueError("order must be positive")
-
-    trees = [t for t in trees_up_to_order(order) if t != Tree(None)]
-    equations = [
-        sympy.expand(rk_order_cond(t, stages, explicit=True, rationalise=rationalise))
-        for t in trees
-    ]
-    return equations, trees
+    return generate_explicit_order_equations_from_ansatz(order, stages, rationalise=rationalise)
 
 
 def generate_explicit_antisymmetric_equations(
@@ -112,22 +102,11 @@ def generate_explicit_antisymmetric_equations(
     The defining condition is ``m = (phi & sign) * phi = counit`` on trees,
     where ``phi`` is the method's elementary-weights map.
     """
-    if antisymmetric_order <= 0:
-        raise ValueError("antisymmetric_order must be positive")
-
-    phi = _rk_symbolic_weights_map(stages, explicit=True)
-    m = (phi & sign) * phi
-
-    trees: list[Tree] = [t for t in trees_up_to_order(antisymmetric_order) if t != Tree(None)]
-    equations: list[sympy.core.basic.Basic] = [
-        sympy.expand(sympy.sympify(m(t) - counit(t))) for t in trees
-    ]
-    if rationalise:
-        equations = [
-            sympy.sympify(sympy.nsimplify(equation, tolerance=1e-10, rational=True))
-            for equation in equations
-        ]
-    return equations, trees
+    return generate_explicit_antisymmetric_equations_from_ansatz(
+        antisymmetric_order,
+        stages,
+        rationalise=rationalise,
+    )
 
 
 def _normalise_assignments(
@@ -236,20 +215,6 @@ def _solution_is_numeric(named_solution: dict[str, sympy.core.basic.Basic]) -> b
     return all(not sympy.sympify(value).free_symbols for value in named_solution.values())
 
 
-def _construct_explicit_tableau(
-    stages: int, symbol_values: dict[str, sympy.core.basic.Basic]
-) -> tuple[list[list[float]], list[float]]:
-    a_matrix: list[list[float]] = [[0.0 for _ in range(stages)] for _ in range(stages)]
-    b_vector: list[float] = [0.0 for _ in range(stages)]
-
-    for i in range(stages):
-        for j in range(i):
-            a_matrix[i][j] = float(sympy.N(symbol_values.get(f"a{i}{j}", sympy.Integer(0)), 20))
-        b_vector[i] = float(sympy.N(symbol_values.get(f"b{i}", sympy.Integer(0)), 20))
-
-    return a_matrix, b_vector
-
-
 def _verify_solution(
     equations: list[sympy.core.basic.Basic],
     symbol_values: dict[sympy.Symbol, sympy.core.basic.Basic],
@@ -288,27 +253,22 @@ def make_explicit_rk_methods(
     if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
         raise ValueError("antisymmetric_order must be positive")
 
-    equations, trees = generate_explicit_order_equations(order, stages, rationalise=True)
-    if antisymmetric_order is not None:
-        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
-            antisymmetric_order, stages, rationalise=True
-        )
-        equations = equations + antisymmetric_equations
-        trees = trees + antisymmetric_trees
-    ansatz_used: BaseAnsatz = BaseAnsatz() if ansatz is None else ansatz
+    ansatz_used: BaseAnsatz = ExplicitAnsatz() if ansatz is None else ansatz
+    equations, trees = ansatz_used.base_equations(
+        order=order,
+        stages=stages,
+        antisymmetric_order=antisymmetric_order,
+    )
     equations = equations + ansatz_used.extra_equations(stages=stages)
 
     compiled_constraints = compile_constraints(constraints if constraints is not None else [])
     equations = equations + compiled_constraints.equations
-    a_symbols, b_symbols = explicit_unknown_symbols(stages)
-    default_symbols = a_symbols + b_symbols
-    solve_symbols = ansatz_used.solve_symbols(stages=stages)
-    all_symbols = default_symbols if solve_symbols is None else solve_symbols
+    all_symbols = ansatz_used.unknown_symbols(stages=stages)
 
     assignments = _normalise_assignments(fixed_values, zero_symbols)
     substitutions_map = _merge_substitution_maps(
         [
-            ansatz_used.extra_substitutions(stages=stages),
+            ansatz_used.tableau_substitutions(stages=stages),
             compiled_constraints.substitutions,
         ]
     )
@@ -370,7 +330,7 @@ def make_explicit_rk_methods(
             continue
         named_solutions.append(named)
         if _solution_is_numeric(named):
-            a_matrix, b_vector = _construct_explicit_tableau(stages, named)
+            a_matrix, b_vector = ansatz_used.build_tableau(stages=stages, named_solution=named)
             methods.append(
                 RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}")
             )
