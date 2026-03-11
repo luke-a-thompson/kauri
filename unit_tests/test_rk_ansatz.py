@@ -1,12 +1,14 @@
 import unittest
 
 import sympy
-from kauri import make_explicit_rk_methods
+from kauri import build_method_from_ansatz
 from kauri.numerics.ansatze.williamson import (
     WilliamsonAnsatz,
     generate_2n_polynomial_constraints,
     is_2n_tableau,
 )
+from kauri.numerics.methods.rk import RK
+from kauri.numerics.methods.williamson import WilliamsonRK
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 
 
@@ -42,7 +44,7 @@ class RKAnsatzTests(unittest.TestCase):
             self.assertEqual(sympy.Integer(0), residual)
 
     def test_rk_maker_williamson_ansatz_smoke(self):
-        result = make_explicit_rk_methods(
+        methods, solve_result = build_method_from_ansatz(
             order=1,
             stages=3,
             ansatz=WilliamsonAnsatz(),
@@ -55,11 +57,12 @@ class RKAnsatzTests(unittest.TestCase):
             },
             max_solutions=1,
         )
-        self.assertEqual("WilliamsonAnsatz", result.ansatz)
-        self.assertGreaterEqual(len(result.methods), 1)
+        self.assertEqual("WilliamsonAnsatz", solve_result.ansatz)
+        self.assertGreaterEqual(len(methods), 1)
+        self.assertTrue(all(isinstance(method, WilliamsonRK) for method in methods))
 
     def test_recover_ees25_via_williamson_ansatz(self):
-        result = make_explicit_rk_methods(
+        methods, _ = build_method_from_ansatz(
             order=2,
             stages=3,
             antisymmetric_order=5,
@@ -67,10 +70,12 @@ class RKAnsatzTests(unittest.TestCase):
             fixed_values={"b0": sympy.Rational(1, 4)},
             max_solutions=1,
         )
-        self.assertEqual(1, len(result.methods))
-        method = result.methods[0]
-        self.assertEqual(2, method.order())
-        self.assertEqual(5, method.antisymmetric_order())
+        self.assertEqual(1, len(methods))
+        method = methods[0]
+        self.assertIsInstance(method, WilliamsonRK)
+        rk_method = RK(method.a, method.b, method.name)
+        self.assertEqual(2, rk_method.order())
+        self.assertEqual(5, rk_method.antisymmetric_order())
 
         self.assertAlmostEqual(0.25, method.b[0])
         self.assertAlmostEqual(0.5, method.b[1])

@@ -44,3 +44,4 @@ class BaseAnsatz(ABC):
         named_solution: dict[str, sympy.core.basic.Basic],
     ) -> bool:
         return True
+

@@ -33,7 +33,7 @@ from kauri.numerics.planar_trees.planar_basis import (
 )
 from kauri.numerics.rk.rk import rk_order_cond, rk_symbolic_weight
 from kauri.numerics.rk.rk_constraints import Constraint
-from kauri.numerics.rk.rk_maker import RKMakerResult, make_explicit_rk_methods
+from kauri.numerics.rk.rk_maker import SolveResult, build_method_from_ansatz
 from kauri.numerics.rk.rk_methods import (
     EES25,
     EES27,

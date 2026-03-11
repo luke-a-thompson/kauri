@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING
 import sympy
 
 if TYPE_CHECKING:
-    from kauri.numerics.rk.rk_maker import RKMakerResult
+    from kauri.numerics.rk.rk_maker import SolveResult
 
 
-def _result_metadata(result: "RKMakerResult") -> list[tuple[str, str]]:
+def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:
     fixings_str = (
         ", ".join(f"{k}={sympy.sstr(v)}" for k, v in result.fixings.items())
         if result.fixings
@@ -18,12 +18,11 @@ def _result_metadata(result: "RKMakerResult") -> list[tuple[str, str]]:
         ("active unknowns", ", ".join(result.unknowns)),
         ("free symbols", ", ".join(result.free_symbols)),
         ("fixings", fixings_str),
-        ("method count", str(len(result.methods))),
     ]
 
 
 def result_to_text(
-    result: "RKMakerResult",
+    result: "SolveResult",
     max_cell_chars: int = 48,
 ) -> str:
     lines: list[str] = []
@@ -38,21 +37,17 @@ def result_to_text(
             for relation in result.free_symbol_relations:
                 lines.append(f"  {sympy.sstr(relation)} = 0")
 
-    if len(result.methods) > 0 and hasattr(result.methods[0], "to_text"):
-        lines.append("")
-        lines.append(result.methods[0].to_text(max_cell_chars=max_cell_chars))
-    elif len(result.solutions) > 0 and len(result.methods) == 0:
+    if len(result.solutions) > 0:
         lines.append("")
         lines.append(
-            "No explicit numeric method could be constructed — the solution"
-            " contains free parameters. Fix remaining free symbols via"
-            " fixed_values/zero_symbols, or use the symbolic solutions directly."
+            "Use build_method_from_ansatz return value `methods` for constructed methods."
+            " This object only stores solve metadata and symbolic solutions."
         )
     return "\n".join(lines)
 
 
 def result_to_latex(
-    result: "RKMakerResult",
+    result: "SolveResult",
     max_cell_chars: int = 48,
     standalone: bool = True,
 ) -> str:
@@ -68,14 +63,10 @@ def result_to_latex(
         lines.append(rf"\item {key}: \texttt{{{value}}}")
     lines.append(r"\end{itemize}")
 
-    if len(result.methods) > 0 and hasattr(result.methods[0], "to_latex"):
-        lines.append(result.methods[0].to_latex(max_cell_chars=max_cell_chars))
-    elif len(result.solutions) > 0 and len(result.methods) == 0:
+    if len(result.solutions) > 0:
         lines.append(
-            r"\textit{No explicit numeric method could be constructed"
-            r" --- the solution contains free parameters."
-            r" Fix remaining free symbols via fixed\_values/zero\_symbols,"
-            r" or use the symbolic solutions directly.}"
+            r"\textit{Use make\_explicit\_rk\_methods return value methods for constructed methods."
+            r" This object only stores solve metadata and symbolic solutions.}"
         )
 
     if standalone:

@@ -17,6 +17,7 @@
 
 import time
 from dataclasses import dataclass
+from typing import overload
 
 import sympy
 
@@ -34,18 +35,20 @@ from kauri.numerics.ansatze.explicit import (
     generate_explicit_order_equations as generate_explicit_order_equations_from_ansatz,
 )
 from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
+from kauri.numerics.ansatze.williamson import verify_williamson_relations
+from kauri.numerics.ansatze.williamson import williamson_tableau_expressions
 from kauri.numerics.methods.rk import RK
+from kauri.numerics.methods.williamson import WilliamsonRK
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 from kauri.trees.trees import Tree
 
 
 @dataclass
-class RKMakerResult:
+class SolveResult:
     """
     Container for explicit RK construction outputs.
     """
 
-    methods: list[RK]
     solutions: list[dict[str, sympy.core.basic.Basic]]
     equations: list[sympy.core.basic.Basic]
     unknowns: list[str]
@@ -232,17 +235,123 @@ def _verify_solution(
     return True
 
 
-def make_explicit_rk_methods(
+def _validated_named_solutions(
+    full_solutions: list[dict[sympy.Symbol, sympy.core.basic.Basic]],
+    ansatz_used: BaseAnsatz,
+    stages: int,
+) -> list[dict[str, sympy.core.basic.Basic]]:
+    named_solutions: list[dict[str, sympy.core.basic.Basic]] = []
+    for solution in full_solutions:
+        named = {str(symbol): value for symbol, value in solution.items()}
+        if ansatz_used.post_validate(stages=stages, named_solution=named):
+            named_solutions.append(named)
+    return named_solutions
+
+
+def _build_explicit_methods(
+    *,
+    named_solutions: list[dict[str, sympy.core.basic.Basic]],
+    ansatz_used: ExplicitAnsatz,
+    stages: int,
+    order: int,
+) -> list[RK]:
+    methods: list[RK] = []
+    for index, named_solution in enumerate(named_solutions):
+        if not _solution_is_numeric(named_solution):
+            continue
+        a_matrix, b_vector = ansatz_used.build_tableau(stages=stages, named_solution=named_solution)
+        methods.append(RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}"))
+    return methods
+
+
+def _build_williamson_methods(
+    *,
+    named_solutions: list[dict[str, sympy.core.basic.Basic]],
+    stages: int,
+    order: int,
+) -> list[WilliamsonRK]:
+    methods: list[WilliamsonRK] = []
+    for index, named_solution in enumerate(named_solutions):
+        if not _solution_is_numeric(named_solution):
+            continue
+        A_params = [sympy.Integer(0)] + [
+            sympy.sympify(named_solution.get(f"A{i_idx}", sympy.Integer(0)))
+            for i_idx in range(1, stages)
+        ]
+        B_params = [
+            sympy.sympify(named_solution.get(f"B{i_idx}", sympy.Integer(0))) for i_idx in range(stages)
+        ]
+
+        a_expr, b_expr = williamson_tableau_expressions(
+            stages=stages,
+            A_symbols=A_params,
+            B_symbols=B_params,
+        )
+        a_sym: list[list[sympy.core.basic.Basic]] = [
+            [sympy.nsimplify(a_expr[i][j], rational=True) for j in range(stages)]
+            for i in range(stages)
+        ]
+        b_sym: list[sympy.core.basic.Basic] = [
+            sympy.nsimplify(value, rational=True) for value in b_expr
+        ]
+        c_sym: list[sympy.core.basic.Basic] = [
+            sympy.simplify(sum(a_sym[i][j] for j in range(stages))) for i in range(stages)
+        ]
+
+        verify_williamson_relations(a=a_sym, b=b_sym, A_params=A_params, B=B_params)
+        methods.append(
+            WilliamsonRK(
+                stages=stages,
+                a=a_sym,
+                b=b_sym,
+                c=c_sym,
+                A=A_params,
+                B=B_params,
+                name=f"generated_explicit_rk_s{stages}_p{order}_{index}_williamson2n",
+            )
+        )
+    return methods
+
+
+@overload
+def build_method_from_ansatz(
+    ansatz: ExplicitAnsatz,
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
-    ansatz: BaseAnsatz | None = None,
     constraints: list[Constraint] | None = None,
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
-) -> RKMakerResult:
+) -> tuple[list[RK], SolveResult]: ...
+
+
+@overload
+def build_method_from_ansatz(
+    ansatz: WilliamsonAnsatz,
+    order: int,
+    stages: int,
+    antisymmetric_order: int | None = None,
+    constraints: list[Constraint] | None = None,
+    fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
+    zero_symbols: list[str] | None = None,
+    max_solutions: int | None = 1,
+    verify_symbolic: bool = True,
+) -> tuple[list[WilliamsonRK], SolveResult]: ...
+
+
+def build_method_from_ansatz(
+    ansatz: BaseAnsatz,
+    order: int,
+    stages: int,
+    antisymmetric_order: int | None = None,
+    constraints: list[Constraint] | None = None,
+    fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
+    zero_symbols: list[str] | None = None,
+    max_solutions: int | None = 1,
+    verify_symbolic: bool = True,
+) -> tuple[list[RK] | list[WilliamsonRK], SolveResult]:
     """
     Construct explicit RK methods of requested order and stage count.
 
@@ -323,30 +432,35 @@ def make_explicit_rk_methods(
             continue
         full_solutions.append(merged)
 
-    methods: list[RK] = []
-    named_solutions: list[dict[str, sympy.core.basic.Basic]] = []
-    for index, solution in enumerate(full_solutions):
-        named: dict[str, sympy.core.basic.Basic] = {
-            str(symbol): value for symbol, value in solution.items()
-        }
-        if not ansatz_used.post_validate(
-            stages=stages,
-            named_solution=named,
-        ):
-            continue
-        named_solutions.append(named)
-        if _solution_is_numeric(named):
-            a_matrix, b_vector = ansatz_used.build_tableau(stages=stages, named_solution=named)
-            methods.append(
-                RK(a_matrix, b_vector, f"generated_explicit_rk_s{stages}_p{order}_{index}")
+    named_solutions = _validated_named_solutions(
+        full_solutions=full_solutions,
+        ansatz_used=ansatz_used,
+        stages=stages,
+    )
+
+    methods: list[RK] | list[WilliamsonRK]
+    match ansatz_used:
+        case _ if isinstance(ansatz_used, WilliamsonAnsatz):
+            methods = _build_williamson_methods(
+                named_solutions=named_solutions,
+                stages=stages,
+                order=order,
             )
+        case _ if isinstance(ansatz_used, ExplicitAnsatz):
+            methods = _build_explicit_methods(
+                named_solutions=named_solutions,
+                ansatz_used=ansatz_used,
+                stages=stages,
+                order=order,
+            )
+        case _:
+            raise TypeError("Unsupported ansatz type. Expected ExplicitAnsatz or WilliamsonAnsatz.")
 
     fixings: dict[str, sympy.core.basic.Basic] = {
         str(symbol): value for symbol, value in assignments.items()
     }
 
-    return RKMakerResult(
-        methods=methods,
+    solve_result = SolveResult(
         solutions=named_solutions,
         equations=reduced_equations,
         unknowns=[str(symbol) for symbol in active_symbols],
@@ -356,11 +470,12 @@ def make_explicit_rk_methods(
         ansatz=type(ansatz_used).__name__,
         fixings=fixings,
     )
+    return methods, solve_result
 
 
 if __name__ == "__main__":
     # Demo: build a 2N-storage EES-style explicit RK method.
-    demo_result: RKMakerResult = make_explicit_rk_methods(
+    demo_methods, demo_result = build_method_from_ansatz(
         order=2,
         stages=3,
         antisymmetric_order=5,
@@ -369,6 +484,7 @@ if __name__ == "__main__":
         max_solutions=1,
     )
 
+    print(f"methods found: {len(demo_methods)}")
     print(demo_result)
     with open("rk_maker_output.tex", "w", encoding="utf-8") as f:
         f.write(demo_result.to_latex(standalone=True))

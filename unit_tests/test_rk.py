@@ -19,7 +19,7 @@ import kauri.hopf_algebras.bck as bck
 from kauri import (
     EES25,
     EES27,
-    RKMakerResult,
+    SolveResult,
     Tree,
     backward_euler,
     crank_nicolson,
@@ -31,7 +31,7 @@ from kauri import (
     implicit_midpoint,
     kutta_rk3,
     lobatto6,
-    make_explicit_rk_methods,
+    build_method_from_ansatz,
     midpoint,
     nystrom_rk5,
     radau_iia,
@@ -131,24 +131,24 @@ class RKTests(unittest.TestCase):
         self.assertEqual(7, rk.antisymmetric_order())
 
     def test_rk_maker_type_and_order_one(self):
-        result = make_explicit_rk_methods(order=1, stages=1, max_solutions=1)
+        methods, result = build_method_from_ansatz(order=1, stages=1, max_solutions=1)
 
-        self.assertIsInstance(result, RKMakerResult)
-        self.assertEqual(1, len(result.methods))
-        self.assertEqual(1, result.methods[0].order())
-        self.assertTrue(result.methods[0].explicit)
-        self.assertAlmostEqual(1.0, result.methods[0].b[0])
+        self.assertIsInstance(result, SolveResult)
+        self.assertEqual(1, len(methods))
+        self.assertEqual(1, methods[0].order())
+        self.assertTrue(methods[0].explicit)
+        self.assertAlmostEqual(1.0, methods[0].b[0])
 
     def test_rk_maker_order_two_stage_two_with_fixed_symbol(self):
-        result = make_explicit_rk_methods(
+        methods, _ = build_method_from_ansatz(
             order=2,
             stages=2,
             zero_symbols=["b0"],
             max_solutions=1,
         )
 
-        self.assertEqual(1, len(result.methods))
-        method = result.methods[0]
+        self.assertEqual(1, len(methods))
+        method = methods[0]
         self.assertTrue(method.explicit)
         self.assertEqual(2, method.order())
         self.assertAlmostEqual(0.5, method.a[1][0])
@@ -156,9 +156,9 @@ class RKTests(unittest.TestCase):
         self.assertAlmostEqual(1.0, method.b[1])
 
     def test_rk_maker_unsolved_system_returns_empty(self):
-        result = make_explicit_rk_methods(
+        methods, _ = build_method_from_ansatz(
             order=4,
             stages=2,
             max_solutions=1,
         )
-        self.assertEqual(0, len(result.methods))
+        self.assertEqual(0, len(methods))

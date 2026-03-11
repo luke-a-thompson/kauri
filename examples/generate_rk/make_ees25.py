@@ -11,11 +11,11 @@ Run with:
 
 import sympy
 from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
-from kauri.numerics.rk.rk_maker import make_explicit_rk_methods
+from kauri.numerics.rk.rk_maker import build_method_from_ansatz
 
 
 def main() -> int:
-    result = make_explicit_rk_methods(
+    methods, solve_result = build_method_from_ansatz(
         order=2,
         stages=3,
         antisymmetric_order=5,
@@ -23,7 +23,8 @@ def main() -> int:
         fixed_values={"b0": sympy.Rational(1, 4)},
         max_solutions=1,
     )
-    print(result)
+    print(solve_result)
+    print(f"methods found: {len(methods)}")
     return 0
 
 
