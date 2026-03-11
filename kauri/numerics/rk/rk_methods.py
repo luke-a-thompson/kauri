@@ -20,7 +20,7 @@ We list these below, along with their Butcher tableux.
 
 from math import sqrt
 
-from kauri.numerics.rk.rk import RK
+from kauri.numerics.methods.rk import RK
 
 euler = RK([[0]], [1], "Euler")
 euler.__doc__ = """

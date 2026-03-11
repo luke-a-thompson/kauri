@@ -20,16 +20,22 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.numerics.rk.rk import RK
-from kauri.numerics.rk.rk_ansatz import (
-    BaseAnsatz,
+from kauri.numerics.ansatze.base import BaseAnsatz
+from kauri.numerics.ansatze.explicit import (
     ExplicitAnsatz,
+)
+from kauri.numerics.ansatze.explicit import (
     explicit_unknown_symbols as explicit_unknown_symbols_from_ansatz,
+)
+from kauri.numerics.ansatze.explicit import (
     generate_explicit_antisymmetric_equations as generate_explicit_antisymmetric_equations_from_ansatz,
+)
+from kauri.numerics.ansatze.explicit import (
     generate_explicit_order_equations as generate_explicit_order_equations_from_ansatz,
 )
+from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
+from kauri.numerics.methods.rk import RK
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
-from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
 from kauri.trees.trees import Tree
 
 
