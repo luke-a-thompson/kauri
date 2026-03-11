@@ -21,19 +21,17 @@ from kauri.hopf_algebras import bck, cem
 from kauri.hopf_algebras.bseries import BSeries, elementary_differential
 from kauri.hopf_algebras.maps import Map, exact_weights, ident, omega, sign
 from kauri.hopf_algebras.oddeven import id_sqrt, minus, plus
-from kauri.numerics.cf.cf_verify import VerificationResult, verify_cf_ees
-from kauri.numerics.cf.cf_williamson import WilliamsonCF, WilliamsonRK
+from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
+from kauri.numerics.methods.cf import VerificationResult, verify_cf_ees
+from kauri.numerics.methods.rk import RK
+from kauri.numerics.methods.williamson import WilliamsonCF, WilliamsonRK
 from kauri.numerics.planar_trees.planar_basis import (
     OrderedForest,
     OrderedForestSum,
     PlanarTree,
     TensorOrderedSum,
 )
-from kauri.numerics.planar_trees.planar_gentrees import (
-    planar_trees_of_order,
-    planar_trees_up_to_order,
-)
-from kauri.numerics.rk.rk import RK, rk_order_cond, rk_symbolic_weight
+from kauri.numerics.rk.rk import rk_order_cond, rk_symbolic_weight
 from kauri.numerics.rk.rk_constraints import Constraint
 from kauri.numerics.rk.rk_maker import RKMakerResult, make_explicit_rk_methods
 from kauri.numerics.rk.rk_methods import (
@@ -55,7 +53,11 @@ from kauri.numerics.rk.rk_methods import (
     ralston_rk4,
     rk4,
 )
-from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
-from kauri.trees.gentrees import trees_of_order, trees_up_to_order
+from kauri.trees.gentrees import (
+    planar_trees_of_order,
+    planar_trees_up_to_order,
+    trees_of_order,
+    trees_up_to_order,
+)
 from kauri.trees.trees import Forest, ForestSum, TensorProductSum, Tree
 from kauri.viz.display import display
