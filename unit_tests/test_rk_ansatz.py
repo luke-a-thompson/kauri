@@ -2,12 +2,12 @@ import unittest
 
 import sympy
 from kauri import make_explicit_rk_methods
-from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
-from kauri.numerics.rk.williamson_ansatz import (
+from kauri.numerics.ansatze.williamson import (
     WilliamsonAnsatz,
     generate_2n_polynomial_constraints,
     is_2n_tableau,
 )
+from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
 
 
 class RKAnsatzTests(unittest.TestCase):

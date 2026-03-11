@@ -1,11 +1,11 @@
 import unittest
 
-from kauri.numerics.cf.cf_verify import verify_cf_ees
-from kauri.numerics.cf.cf_williamson import rk_to_williamson_2n
+from kauri.numerics.methods.cf import verify_cf_ees
+from kauri.numerics.methods.williamson import rk_to_williamson_2n
 from kauri.numerics.planar_trees.planar_basis import PlanarTree
-from kauri.numerics.planar_trees.planar_gentrees import planar_trees_of_order
 from kauri.numerics.rk.rk_maker import make_explicit_rk_methods
 from kauri.numerics.rk.rk_methods import euler
+from kauri.trees.gentrees import planar_trees_of_order
 
 
 class CFVerificationPipelineTests(unittest.TestCase):
