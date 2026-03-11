@@ -10,12 +10,12 @@ Run with:
 """
 
 import sympy
-from kauri.numerics.rk import RKMakerResult, make_explicit_rk_methods
-from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
+from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
+from kauri.numerics.rk.rk_maker import make_explicit_rk_methods
 
 
 def main() -> int:
-    result: RKMakerResult = make_explicit_rk_methods(
+    result = make_explicit_rk_methods(
         order=2,
         stages=3,
         antisymmetric_order=5,

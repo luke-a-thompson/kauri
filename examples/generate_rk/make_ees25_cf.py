@@ -10,13 +10,14 @@ Run with:
 """
 
 import sympy
-from kauri.numerics.cf.cf_verify import verify_cf_ees
-from kauri.numerics.rk import RKMakerResult, make_explicit_rk_methods
-from kauri.numerics.rk.williamson_ansatz import WilliamsonAnsatz
+from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
+from kauri.numerics.methods.cf import verify_cf_ees
+from kauri.numerics.methods.williamson import rk_to_williamson_2n
+from kauri.numerics.rk.rk_maker import make_explicit_rk_methods
 
 
 def main() -> int:
-    result: RKMakerResult = make_explicit_rk_methods(
+    result = make_explicit_rk_methods(
         order=2,
         stages=3,
         antisymmetric_order=5,
@@ -27,7 +28,7 @@ def main() -> int:
     print(result)
 
     for method in result.methods:
-        cf = method.to_cf()
+        cf = rk_to_williamson_2n(method).to_cf()
         print(cf.to_text())
 
         verification = verify_cf_ees(cf, order=4)
