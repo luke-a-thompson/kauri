@@ -23,12 +23,11 @@ import sympy
 
 from kauri.hopf_algebras.bck import counit
 from kauri.hopf_algebras.maps import sign
-from kauri.numerics.methods.rk import RK
-from kauri.numerics.methods.tableau import ButcherTableau
-from kauri.numerics.methods.williamson import WilliamsonRK
-from kauri.numerics.rk.rk import _rk_symbolic_weights_map, rk_order_cond
-from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
-from kauri.numerics.rk.williamson import (
+from kauri.methods.rk import RK, ButcherTableau
+from kauri.methods.williamson import WilliamsonRK
+from kauri.rk_builder.rk import _rk_symbolic_weights_map, rk_order_cond
+from kauri.rk_builder.rk_constraints import Constraint, compile_constraints
+from kauri.rk_builder.williamson import (
     WilliamsonValidation,
     verify_williamson_relations,
     williamson_tableau_expressions,
@@ -61,7 +60,7 @@ class SolveResult:
         self,
         max_cell_chars: int = 48,
     ) -> str:
-        from kauri.numerics.rk.rk_maker_format import result_to_text
+        from kauri.rk_builder.rk_maker_format import result_to_text
 
         return result_to_text(self, max_cell_chars=max_cell_chars)
 
@@ -70,7 +69,7 @@ class SolveResult:
         max_cell_chars: int = 48,
         standalone: bool = True,
     ) -> str:
-        from kauri.numerics.rk.rk_maker_format import result_to_latex
+        from kauri.rk_builder.rk_maker_format import result_to_latex
 
         return result_to_latex(self, max_cell_chars=max_cell_chars, standalone=standalone)
 
@@ -147,20 +146,6 @@ def _construct_explicit_tableau(
             )
         b_vector[i_idx] = float(sympy.N(symbol_values.get(f"b{i_idx}", sympy.Integer(0)), 20))
     return a_matrix, b_vector
-
-
-def _normalise_assignments(
-    fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None,
-    zero_symbols: list[str] | None,
-) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
-    assignments: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
-    if fixed_values is not None:
-        for key, value in fixed_values.items():
-            assignments[sympy.symbols(key)] = sympy.sympify(value)
-    if zero_symbols is not None:
-        for name in zero_symbols:
-            assignments[sympy.symbols(name)] = sympy.Integer(0)
-    return assignments
 
 
 def _merge_substitution_maps(
@@ -286,22 +271,18 @@ def _run_symbolic_builder(
     trees: list[Tree],
     all_symbols: list[sympy.Symbol],
     substitution_maps: list[dict[sympy.Symbol, sympy.core.basic.Basic]],
-    fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None,
-    zero_symbols: list[str] | None,
+    fixings: dict[sympy.Symbol, sympy.core.basic.Basic],
     max_solutions: int | None,
     verify_symbolic: bool,
     post_validate: Callable[[int, dict[str, sympy.core.basic.Basic]], bool] | None,
     parameterization: str,
     stages: int,
 ) -> SolveResult:
-    assignments = _normalise_assignments(fixed_values, zero_symbols)
     substitutions_map = _merge_substitution_maps(substitution_maps)
-    for symbol, value in assignments.items():
+    for symbol, value in fixings.items():
         resolved_value = sympy.sympify(value)
         if symbol in substitutions_map:
-            equations.append(
-                sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value))
-            )
+            equations.append(sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value)))
         else:
             substitutions_map[symbol] = resolved_value
 
@@ -350,7 +331,6 @@ def _run_symbolic_builder(
         post_validate=post_validate,
     )
 
-    fixings = {str(symbol): value for symbol, value in assignments.items()}
     return SolveResult(
         solutions=named_solutions,
         equations=reduced_equations,
@@ -359,7 +339,7 @@ def _run_symbolic_builder(
         free_symbol_relations=grobner_result.free_symbol_relations,
         trees=trees,
         parameterization=parameterization,
-        fixings=fixings,
+        fixings={str(symbol): value for symbol, value in fixings.items()},
     )
 
 
@@ -432,8 +412,6 @@ def build_explicit_rk(
     stages: int,
     antisymmetric_order: int | None = None,
     constraints: list[Constraint] | None = None,
-    fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
-    zero_symbols: list[str] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
 ) -> tuple[list[RK], SolveResult]:
@@ -468,9 +446,8 @@ def build_explicit_rk(
         equations=equations,
         trees=trees,
         all_symbols=a_symbols + b_symbols,
-        substitution_maps=[compiled_constraints.substitutions],
-        fixed_values=fixed_values,
-        zero_symbols=zero_symbols,
+        substitution_maps=[],
+        fixings=compiled_constraints.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
         post_validate=None,
@@ -492,8 +469,6 @@ def build_williamson_rk(
     stages: int,
     antisymmetric_order: int | None = None,
     constraints: list[Constraint] | None = None,
-    fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
-    zero_symbols: list[str] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
     validate_2n_polynomials: bool = True,
@@ -531,10 +506,8 @@ def build_williamson_rk(
         all_symbols=williamson_unknown_symbols(stages=stages),
         substitution_maps=[
             williamson_tableau_substitutions(stages=stages),
-            compiled_constraints.substitutions,
         ],
-        fixed_values=fixed_values,
-        zero_symbols=zero_symbols,
+        fixings=compiled_constraints.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
         post_validate=validator.post_validate,
@@ -556,12 +529,13 @@ if __name__ == "__main__":
         order=2,
         stages=3,
         antisymmetric_order=5,
-        fixed_values={"b0": sympy.Rational(1, 4)},
+        constraints=[Constraint.set("b0", sympy.Rational(1, 4))],
         max_solutions=1,
     )
 
     print(f"methods found: {len(demo_methods)}")
     print(demo_result)
     print(demo_methods[0])
+    print(demo_methods[0].tableau)
     with open("rk_maker_output.tex", "w", encoding="utf-8") as file_obj:
         file_obj.write(demo_result.to_latex(standalone=True))

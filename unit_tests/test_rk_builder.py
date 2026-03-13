@@ -2,13 +2,13 @@ import unittest
 
 import sympy
 from kauri import build_williamson_rk
-from kauri.numerics.methods.rk import RK
-from kauri.numerics.methods.williamson import WilliamsonRK
-from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
-from kauri.numerics.rk.williamson import generate_2n_polynomial_constraints, is_2n_tableau
+from kauri.methods.rk import RK
+from kauri.methods.williamson import WilliamsonRK
+from kauri.rk_builder.rk_constraints import Constraint, compile_constraints
+from kauri.rk_builder.williamson import generate_2n_polynomial_constraints, is_2n_tableau
 
 
-class RKAnsatzTests(unittest.TestCase):
+class RKBuilderTests(unittest.TestCase):
     def test_constraints_compile_tie_and_set(self):
         compiled = compile_constraints(
             [
@@ -43,13 +43,13 @@ class RKAnsatzTests(unittest.TestCase):
         methods, solve_result = build_williamson_rk(
             order=1,
             stages=3,
-            fixed_values={
-                "A1": 0,
-                "A2": 0,
-                "B0": 0,
-                "B1": 0,
-                "B2": 1,
-            },
+            constraints=[
+                Constraint.zero("A1"),
+                Constraint.zero("A2"),
+                Constraint.zero("B0"),
+                Constraint.zero("B1"),
+                Constraint.one("B2"),
+            ],
             max_solutions=1,
         )
         self.assertEqual("williamson_2n", solve_result.parameterization)
@@ -61,7 +61,7 @@ class RKAnsatzTests(unittest.TestCase):
             order=2,
             stages=3,
             antisymmetric_order=5,
-            fixed_values={"b0": sympy.Rational(1, 4)},
+            constraints=[Constraint.set("b0", sympy.Rational(1, 4))],
             max_solutions=1,
         )
         self.assertEqual(1, len(methods))

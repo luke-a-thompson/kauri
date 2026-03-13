@@ -78,15 +78,15 @@ plus_vals = [
 
 class BCKTests(unittest.TestCase):
     def test_id_sqrt(self):
-        for t, s in zip(trees, id_sqrt_vals):
+        for t, s in zip(trees, id_sqrt_vals, strict=False):
             self.assertEqual(id_sqrt(t).singleton_reduced(), s)
 
     def test_minus(self):
-        for t, s in zip(trees, minus_vals):
+        for t, s in zip(trees, minus_vals, strict=False):
             self.assertEqual(minus(t).singleton_reduced(), s)
 
     def test_plus(self):
-        for t, s in zip(trees, plus_vals):
+        for t, s in zip(trees, plus_vals, strict=False):
             self.assertEqual(plus(t).singleton_reduced(), s)
 
     def test_id_sqrt_2(self):

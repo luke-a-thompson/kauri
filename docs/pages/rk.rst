@@ -1,11 +1,11 @@
 Runge--Kutta Schemes
 ========================
 
-.. automodule:: kauri.rk
+.. automodule:: kauri.rk_builder.rk
 
-.. autofunction:: kauri.rk.rk_symbolic_weight
-.. autofunction:: kauri.rk.rk_order_cond
-.. autoclass:: kauri.rk.RK
+.. autofunction:: kauri.rk_builder.rk.rk_symbolic_weight
+.. autofunction:: kauri.rk_builder.rk.rk_order_cond
+.. autoclass:: kauri.methods.rk.RK
    :members:
    :special-members: __mul__, __pow__, __add__
 
@@ -13,7 +13,7 @@ Runge--Kutta Schemes
 Instances
 ---------------
 
-.. automodule:: kauri.rk_methods
+.. automodule:: kauri.methods.rk_catalog
 
 Explicit Methods
 ~~~~~~~~~~~~~~~~~~

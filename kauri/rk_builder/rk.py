@@ -136,22 +136,3 @@ def rk_order_cond(
         mathematica_code=mathematica_code,
         rationalise=rationalise,
     )
-
-
-def rk_symbolic_weight_for_tableau(
-    t: Tree | Forest | ForestSum,
-    a_tableau: list[list[sympy.core.basic.Basic]],
-    b_weights: list[sympy.core.basic.Basic],
-    explicit: bool = True,
-) -> sympy.core.basic.Basic:
-    stages = len(b_weights)
-    substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
-    for i_idx in range(stages):
-        for j_idx in range(stages):
-            substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.sympify(
-                a_tableau[i_idx][j_idx]
-            )
-    for i_idx in range(stages):
-        substitutions[sympy.symbols(f"b{i_idx}")] = sympy.sympify(b_weights[i_idx])
-    symbolic = rk_symbolic_weight(t=t, s=stages, explicit=explicit, rationalise=False)
-    return sympy.simplify(sympy.expand(sympy.sympify(symbolic).subs(list(substitutions.items()))))

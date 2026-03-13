@@ -91,7 +91,7 @@ def _get_tree_traces(layout, coords, scale=0.2):
             branch_layouts[-1].append(i - 1)
             branch_coords[-1].append(coords[idx + 1])
 
-    for lay, c in zip(branch_layouts, branch_coords):
+    for lay, c in zip(branch_layouts, branch_coords, strict=False):
         # Add edge line
         traces.append(
             go.Scatter(
@@ -281,7 +281,7 @@ def _display_tree(layout, color_sequence, coords, scale=0.2):
             branch_coords[-1].append(coords[idx + 1])
             branch_colors[-1].append(color_sequence[idx + 1])
 
-    for lay, c, cols in zip(branch_layouts, branch_coords, branch_colors):
+    for lay, c, cols in zip(branch_layouts, branch_coords, branch_colors, strict=False):
         plt.plot([xroot, c[0][0]], [yroot, c[0][1]], color="black", zorder=-1)
         _display_tree(lay, cols, c, scale)
 

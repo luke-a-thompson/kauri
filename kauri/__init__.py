@@ -21,19 +21,9 @@ from kauri.hopf_algebras import bck, cem
 from kauri.hopf_algebras.bseries import BSeries, elementary_differential
 from kauri.hopf_algebras.maps import Map, exact_weights, ident, omega, sign
 from kauri.hopf_algebras.oddeven import id_sqrt, minus, plus
-from kauri.numerics.methods.cf import VerificationResult, verify_cf_ees
-from kauri.numerics.methods.rk import RK
-from kauri.numerics.methods.williamson import WilliamsonCF, WilliamsonRK
-from kauri.numerics.planar_trees.planar_basis import (
-    OrderedForest,
-    OrderedForestSum,
-    PlanarTree,
-    TensorOrderedSum,
-)
-from kauri.numerics.rk.rk import rk_order_cond, rk_symbolic_weight
-from kauri.numerics.rk.rk_constraints import Constraint
-from kauri.numerics.rk.rk_maker import SolveResult, build_explicit_rk, build_williamson_rk
-from kauri.numerics.rk.rk_methods import (
+from kauri.methods.cf import VerificationResult, verify_cf_ees
+from kauri.methods.rk import RK
+from kauri.methods.rk_catalog import (
     EES25,
     EES27,
     backward_euler,
@@ -52,6 +42,16 @@ from kauri.numerics.rk.rk_methods import (
     ralston_rk4,
     rk4,
 )
+from kauri.methods.williamson import WilliamsonCF, WilliamsonRK
+from kauri.planar_trees.planar_basis import (
+    OrderedForest,
+    OrderedForestSum,
+    PlanarTree,
+    TensorOrderedSum,
+)
+from kauri.rk_builder.rk import rk_order_cond, rk_symbolic_weight
+from kauri.rk_builder.rk_constraints import Constraint
+from kauri.rk_builder.rk_maker import SolveResult, build_explicit_rk, build_williamson_rk
 from kauri.trees.gentrees import (
     planar_trees_of_order,
     planar_trees_up_to_order,

@@ -35,7 +35,7 @@ class BCKTests(unittest.TestCase):
             sp.Matrix([4 * y1**4]),
             sp.Matrix([4 * y1**5]),
         ]
-        for t, d in zip(trees, diffs):
+        for t, d in zip(trees, diffs, strict=False):
             self.assertEqual(d, elementary_differential(t, f, y))
 
     def test_elementary_differentials_2(self):
@@ -49,7 +49,7 @@ class BCKTests(unittest.TestCase):
             sp.Matrix([y1 * y2**2 + y1 * (y1 + y2), y1 * y2 + y1 + y2]),
             sp.Matrix([2 * y1 * y2 * (y1 + y2), 0]),
         ]
-        for t, d in zip(trees, diffs):
+        for t, d in zip(trees, diffs, strict=False):
             self.assertEqual(d, elementary_differential(t, f, y))
 
     def test_exp(self):
@@ -78,7 +78,7 @@ class BCKTests(unittest.TestCase):
         f = sp.Matrix([y1 * y2])
 
         with self.assertRaises(ValueError):
-            bs = BSeries(y, f, exact_weights, 1)
+            BSeries(y, f, exact_weights, 1)
 
     def test_misspecified(self):
         y1, y2 = sp.symbols("y1 y2")
@@ -86,7 +86,7 @@ class BCKTests(unittest.TestCase):
         f = sp.Matrix([[y1 * y2, y2], [y1, y2]])
 
         with self.assertRaises(ValueError):
-            bs = BSeries(y, f, exact_weights, 1)
+            BSeries(y, f, exact_weights, 1)
 
     def test_inverse(self):
         y1 = sp.symbols("y1")

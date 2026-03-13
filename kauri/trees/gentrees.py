@@ -86,7 +86,7 @@ def planar_trees_up_to_order(order: int) -> Generator["PlanarTree", None, None]:
     """
     Yield planar trees up to and including `order` nodes.
     """
-    from kauri.numerics.planar_trees.planar_basis import validate_order
+    from kauri.planar_trees.planar_basis import validate_order
 
     validate_order(order, allow_zero=True)
     for n_nodes in range(0, order + 1):
@@ -97,7 +97,7 @@ def planar_trees_of_order(order: int) -> Generator["PlanarTree", None, None]:
     """
     Yield planar trees with exactly `order` nodes.
     """
-    from kauri.numerics.planar_trees.planar_basis import EMPTY_PLANAR_TREE, validate_order
+    from kauri.planar_trees.planar_basis import EMPTY_PLANAR_TREE, validate_order
 
     validate_order(order, allow_zero=True)
     if order == 0:
@@ -108,7 +108,7 @@ def planar_trees_of_order(order: int) -> Generator["PlanarTree", None, None]:
 
 @cache
 def _planar_trees_with_nodes(n_nodes: int) -> tuple["PlanarTree", ...]:
-    from kauri.numerics.planar_trees.planar_basis import PlanarTree
+    from kauri.planar_trees.planar_basis import PlanarTree
 
     if n_nodes <= 0:
         return tuple()

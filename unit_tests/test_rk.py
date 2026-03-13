@@ -18,6 +18,7 @@ import unittest
 import kauri.hopf_algebras.bck as bck
 import sympy
 from kauri import (
+    Constraint,
     EES25,
     EES27,
     SolveResult,
@@ -44,7 +45,7 @@ from kauri import (
     trees_up_to_order,
 )
 from kauri import Tree as T
-from kauri.numerics.methods.tableau import ButcherTableau
+from kauri.methods.rk import ButcherTableau
 
 sample_trees = [
     T(None),
@@ -173,7 +174,7 @@ class RKTests(unittest.TestCase):
         self.assertEqual(2, rk.order())
         self.assertEqual(7, rk.antisymmetric_order())
 
-    def test_rk_maker_type_and_order_one(self):
+    def test_rk_builder_type_and_order_one(self):
         methods, result = build_explicit_rk(order=1, stages=1, max_solutions=1)
 
         self.assertIsInstance(result, SolveResult)
@@ -182,11 +183,11 @@ class RKTests(unittest.TestCase):
         self.assertTrue(methods[0].explicit)
         self.assertAlmostEqual(1.0, methods[0].tableau.b[0])
 
-    def test_rk_maker_order_two_stage_two_with_fixed_symbol(self):
+    def test_rk_builder_order_two_stage_two_with_fixed_symbol(self):
         methods, _ = build_explicit_rk(
             order=2,
             stages=2,
-            zero_symbols=["b0"],
+            constraints=[Constraint.zero("b0")],
             max_solutions=1,
         )
 
@@ -198,7 +199,7 @@ class RKTests(unittest.TestCase):
         self.assertAlmostEqual(0.0, method.tableau.b[0])
         self.assertAlmostEqual(1.0, method.tableau.b[1])
 
-    def test_rk_maker_unsolved_system_returns_empty(self):
+    def test_rk_builder_unsolved_system_returns_empty(self):
         methods, _ = build_explicit_rk(
             order=4,
             stages=2,

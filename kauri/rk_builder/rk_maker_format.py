@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import sympy
 
 if TYPE_CHECKING:
-    from kauri.numerics.rk.rk_maker import SolveResult
+    from kauri.rk_builder.rk_maker import SolveResult
 
 
 def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:

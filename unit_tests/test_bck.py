@@ -40,7 +40,7 @@ class BCKTests(unittest.TestCase):
             T([[], []]) @ T() + T() @ T([[], []]) + 2 * T([]) @ T([[]]) + T([]) * T([]) @ T([]),
             T([[[]]]) @ T() + T() @ T([[[]]]) + T([[]]) @ T([]) + T([]) @ T([[]]),
         ]
-        for t, c in zip(trees_, true_coproducts_):
+        for t, c in zip(trees_, true_coproducts_, strict=False):
             self.assertEqual(c, bck.coproduct(t))
 
     def test_antipode(self):
@@ -62,7 +62,7 @@ class BCKTests(unittest.TestCase):
             - T([[], [[]]]),
         ]
 
-        for t, s in zip(trees[:7], antipodes):
+        for t, s in zip(trees[:7], antipodes, strict=False):
             self.assertEqual(s, bck.antipode(t), repr(t) + " T")
             self.assertEqual(s, bck.antipode(t.as_forest()), repr(t) + " Forest")
             self.assertEqual(s, bck.antipode(t.as_forest_sum()), repr(t) + " ForestSum")

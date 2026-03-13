@@ -10,9 +10,8 @@ from functools import cached_property
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr
-from kauri.numerics.methods.rk import RK
-from kauri.numerics.methods.tableau import ButcherTableau
-from kauri.numerics.rk.williamson import (
+from kauri.methods.rk import RK, ButcherTableau
+from kauri.rk_builder.williamson import (
     verify_williamson_relations,
     williamson_tableau_expressions,
 )
@@ -100,18 +99,10 @@ class WilliamsonCF:
         return "\n".join(lines)
 
     def elementary_weights_map(self):
-        from kauri.numerics.planar_trees.mkw_truncated import MKWMap
-        from kauri.numerics.rk.rk import rk_symbolic_weight_for_tableau
+        from kauri.planar_trees.mkw_truncated import MKWMap
 
-        def eval_tree(tree):
-            return rk_symbolic_weight_for_tableau(
-                t=tree.to_nonplanar_tree(),
-                a_tableau=self.base.tableau.a,
-                b_weights=self.base.tableau.b,
-                explicit=True,
-            )
-
-        return MKWMap(eval_tree)
+        rk_weights = RK(tableau=self.base.tableau, name=self.base.name).elementary_weights_map()
+        return MKWMap(lambda tree: rk_weights(tree.to_nonplanar_tree()))
 
 
 def rk_to_williamson_2n(rk: RK) -> WilliamsonRK:

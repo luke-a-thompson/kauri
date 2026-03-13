@@ -57,7 +57,7 @@ class CEMTests(unittest.TestCase):
             + 3 * T([[], []]) @ T([[]])
             + 3 * T([[]]) @ T([[], []]),
         ]
-        for t, c in zip(trees_, true_coproducts_):
+        for t, c in zip(trees_, true_coproducts_, strict=False):
             self.assertEqual(c, cem.coproduct(t), msg=repr(t))
 
     def test_antipode(self):
@@ -68,7 +68,7 @@ class CEMTests(unittest.TestCase):
             -T([[], []]) + 2 * T([[]]) ** 2,
             -T([[[]]]) + 2 * T([[]]) ** 2,
         ]
-        for t, a in zip(trees_, antipodes_):
+        for t, a in zip(trees_, antipodes_, strict=False):
             self.assertEqual(a, cem.antipode(t))
 
     def test_antipode_property(self):

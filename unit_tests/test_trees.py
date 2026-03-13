@@ -183,14 +183,14 @@ class TreeTests(unittest.TestCase):
 
     def test_nodes(self):
         nums = [0, 1, 2, 3, 3, 4, 4, 4, 4]
-        for t, n in zip(trees, nums):
+        for t, n in zip(trees, nums, strict=False):
             self.assertEqual(n, t.nodes(), repr(t) + " T")
             self.assertEqual(n, t.as_forest().nodes(), repr(t) + " Forest")
             self.assertEqual(n, t.as_forest_sum().nodes(), repr(t) + " Forest")
 
     def test_height(self):
         nums = [0, 1, 2, 2, 3, 2, 3, 3, 4]
-        for t, n in zip(trees, nums):
+        for t, n in zip(trees, nums, strict=False):
             self.assertEqual(n, t.height(), repr(t))
 
     def test_sigma(self):
@@ -218,7 +218,7 @@ class TreeTests(unittest.TestCase):
 
     def test_factorial(self):
         factorials = [1, 1, 2, 3, 6, 4, 8, 12, 24]
-        for t, f in zip(trees, factorials):
+        for t, f in zip(trees, factorials, strict=False):
             self.assertEqual(f, t.factorial(), repr(t) + " T")
             self.assertEqual(f, t.as_forest().factorial(), repr(t) + " Forest")
             self.assertEqual(f, t.as_forest_sum().factorial(), repr(t) + " ForestSum")

@@ -5,9 +5,9 @@ from dataclasses import dataclass
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr, _simplify_expanded
-from kauri.numerics.methods.williamson import WilliamsonCF
-from kauri.numerics.planar_trees.mkw_ees_spec import counit_planar
-from kauri.numerics.planar_trees.planar_basis import validate_order
+from kauri.methods.williamson import WilliamsonCF
+from kauri.planar_trees.mkw_ees_spec import counit_planar
+from kauri.planar_trees.planar_basis import validate_order
 from kauri.trees.gentrees import planar_trees_up_to_order
 
 

@@ -11,8 +11,8 @@ from itertools import product
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr, _simplify_expanded
-from kauri.numerics.planar_trees.mkw_ees_spec import counit_planar, sign_for_tree
-from kauri.numerics.planar_trees.planar_basis import (
+from kauri.planar_trees.mkw_ees_spec import counit_planar, sign_for_tree
+from kauri.planar_trees.planar_basis import (
     EMPTY_ORDERED_FOREST,
     EMPTY_PLANAR_TREE,
     OrderedForest,

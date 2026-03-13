@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from kauri.numerics.methods.rk import RK
+from kauri.methods.rk import RK
 
 
 class RKObjective(Protocol):

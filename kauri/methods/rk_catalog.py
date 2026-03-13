@@ -20,8 +20,7 @@ We list these below, along with their Butcher tableux.
 
 from math import sqrt
 
-from kauri.numerics.methods.rk import RK
-from kauri.numerics.methods.tableau import ButcherTableau
+from kauri.methods.rk import RK, ButcherTableau
 
 
 def _rk(a, b, name: str) -> RK:

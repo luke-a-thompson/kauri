@@ -99,7 +99,7 @@ def _coproduct_helper(t):
         # Get trees
         for p in itertools.product(*subtree_coproduct_trees):
             rep = []
-            for edge, t_ in zip(edges, p):
+            for edge, t_ in zip(edges, p, strict=False):
                 if t_.list_repr is None:
                     continue
                 rep += (
@@ -115,7 +115,7 @@ def _coproduct_helper(t):
             # Forest constructor does not call Forest.simplify(), meaning this empty tree will survive
             t_list_ = []
             root_tree_repr = []  # The tree connected to the root
-            for edge, f in zip(edges, p):
+            for edge, f in zip(edges, p, strict=False):
                 if edge:
                     root_tree_repr += [f.tree_list[0].list_repr]
                     t_list_ += f.tree_list[1:]
@@ -129,5 +129,5 @@ def _coproduct_helper(t):
 
 def _coproduct(t):
     f, s = _coproduct_helper(t)
-    cp = zip([x.simplify().singleton_reduced() for x in f], s)
+    cp = zip([x.simplify().singleton_reduced() for x in f], s, strict=False)
     return TensorProductSum(tuple((1, x[0], x[1]) for x in cp)).simplify()

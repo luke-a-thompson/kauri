@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.numerics.planar_trees.planar_basis import PlanarTree
+from kauri.planar_trees.planar_basis import PlanarTree
 
 
 @dataclass(frozen=True)

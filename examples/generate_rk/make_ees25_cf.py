@@ -10,8 +10,9 @@ Run with:
 """
 
 import sympy
-from kauri.numerics.methods.cf import verify_cf_ees
-from kauri.numerics.rk.rk_maker import build_williamson_rk
+from kauri import Constraint
+from kauri.methods.cf import verify_cf_ees
+from kauri.rk_builder.rk_maker import build_williamson_rk
 
 
 def main() -> int:
@@ -19,7 +20,7 @@ def main() -> int:
         order=2,
         stages=3,
         antisymmetric_order=5,
-        fixed_values={"b0": sympy.Rational(1, 4)},
+        constraints=[Constraint.set("b0", sympy.Rational(1, 4))],
         max_solutions=1,
     )
     print(solve_result)
