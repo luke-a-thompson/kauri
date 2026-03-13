@@ -73,15 +73,15 @@ class RKAnsatzTests(unittest.TestCase):
         self.assertEqual(1, len(methods))
         method = methods[0]
         self.assertIsInstance(method, WilliamsonRK)
-        rk_method = RK(method.a, method.b, method.name)
+        rk_method = RK(method.tableau, name=method.name)
         self.assertEqual(2, rk_method.order())
         self.assertEqual(5, rk_method.antisymmetric_order())
 
-        self.assertAlmostEqual(0.25, method.b[0])
-        self.assertAlmostEqual(0.5, method.b[1])
-        self.assertAlmostEqual(0.25, method.b[2])
-        self.assertAlmostEqual(0.5, method.a[1][0])
-        self.assertAlmostEqual(0.0, method.a[2][0])
-        self.assertAlmostEqual(1.0, method.a[2][1])
+        self.assertAlmostEqual(0.25, method.tableau.b[0])
+        self.assertAlmostEqual(0.5, method.tableau.b[1])
+        self.assertAlmostEqual(0.25, method.tableau.b[2])
+        self.assertAlmostEqual(0.5, method.tableau.a[1][0])
+        self.assertAlmostEqual(0.0, method.tableau.a[2][0])
+        self.assertAlmostEqual(1.0, method.tableau.a[2][1])
 
-        self.assertTrue(is_2n_tableau(method.a, method.b))
+        self.assertTrue(is_2n_tableau(method.tableau.a, method.tableau.b))

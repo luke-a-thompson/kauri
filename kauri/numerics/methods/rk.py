@@ -6,23 +6,25 @@ import sympy
 
 from kauri.hopf_algebras.bck import counit
 from kauri.hopf_algebras.maps import Map, exact_weights, sign
+from kauri.numerics.methods.tableau import ButcherTableau
 from kauri.trees.gentrees import trees_of_order
 
 _EXACT_SUBSTITUTION_LOG_MAP = exact_weights.log()
 
 
 class RK:
-    def __init__(self, a, b, name=None):
+    def __init__(self, a, b=None, name=None):
         self.name = name
-        self.s = len(b)
-        if len(a) != self.s or len(a[0]) != self.s:
-            raise ValueError(
-                "Parameter 'a' must be a square s x s matrix and b a vector of length s"
-            )
-        self.a = a
-        self.b = b
-        self.c = [sum(a[i][j] for j in range(self.s)) for i in range(self.s)]
-        self.explicit = self._check_explicit()
+        if isinstance(a, ButcherTableau):
+            if b is not None:
+                raise ValueError("Parameter 'b' must be omitted when passing a ButcherTableau")
+            self.tableau = a
+        else:
+            if b is None:
+                raise ValueError("Parameter 'b' is required when passing a raw tableau matrix")
+            self.tableau = ButcherTableau(a=a, b=b)
+        self.s = self.tableau.s
+        self.explicit = self.tableau.explicit
         self.deriv_dict = {}
         for i in range(self.s):
             self.deriv_dict[(i, repr(None))] = 1
@@ -31,9 +33,9 @@ class RK:
     def __repr__(self):
         out = "["
         for i in range(self.s - 1):
-            out += repr(self.a[i]) + ",\n"
-        out += repr(self.a[-1]) + "]\n"
-        out += repr(self.b)
+            out += repr(self.tableau.a[i]) + ",\n"
+        out += repr(self.tableau.a[-1]) + "]\n"
+        out += repr(self.tableau.b)
         return out
 
     def _rationalised_tableau(
@@ -43,12 +45,12 @@ class RK:
         list[list[sympy.core.basic.Basic]],
         list[sympy.core.basic.Basic],
     ]:
-        c_vector = [sympy.nsimplify(value, rational=True) for value in self.c]
+        c_vector = [sympy.nsimplify(value, rational=True) for value in self.tableau.c]
         a_matrix = [
-            [sympy.nsimplify(self.a[i][j], rational=True) for j in range(self.s)]
+            [sympy.nsimplify(self.tableau.a[i][j], rational=True) for j in range(self.s)]
             for i in range(self.s)
         ]
-        b_vector = [sympy.nsimplify(value, rational=True) for value in self.b]
+        b_vector = [sympy.nsimplify(value, rational=True) for value in self.tableau.b]
         return c_vector, a_matrix, b_vector
 
     def to_text(self, max_cell_chars: int = 48) -> str:
@@ -73,39 +75,39 @@ class RK:
             max_cell_chars=max_cell_chars,
         )
 
-    def _check_explicit(self):
-        for i in range(self.s):
-            for j in range(i, self.s):
-                if self.a[i][j]:
-                    return False
-        return True
-
     def _inverse(self):
-        b_inv = [-self.b[i] for i in range(self.s)]
-        a_inv = [[self.a[i][j] - self.b[j] for j in range(self.s)] for i in range(self.s)]
+        b_inv = [-self.tableau.b[i] for i in range(self.s)]
+        a_inv = [
+            [self.tableau.a[i][j] - self.tableau.b[j] for j in range(self.s)]
+            for i in range(self.s)
+        ]
         return RK(a_inv, b_inv)
 
     def reverse(self) -> "RK":
         return RK(
-            [[-self.a[i][j] for j in range(self.s)] for i in range(self.s)],
-            [-self.b[i] for i in range(self.s)],
+            [[-self.tableau.a[i][j] for j in range(self.s)] for i in range(self.s)],
+            [-self.tableau.b[i] for i in range(self.s)],
         )
 
     def adjoint(self) -> "RK":
-        b_adj = [self.b[self.s - 1 - j] for j in range(self.s)]
+        b_adj = [self.tableau.b[self.s - 1 - j] for j in range(self.s)]
         a_adj = [
-            [self.b[self.s - 1 - j] - self.a[self.s - 1 - i][self.s - j - 1] for j in range(self.s)]
+            [
+                self.tableau.b[self.s - 1 - j]
+                - self.tableau.a[self.s - 1 - i][self.s - j - 1]
+                for j in range(self.s)
+            ]
             for i in range(self.s)
         ]
         return RK(a_adj, b_adj)
 
     def __mul__(self, other: "RK") -> "RK":
         s1 = other.s
-        a1 = other.a
-        b1 = other.b
+        a1 = other.tableau.a
+        b1 = other.tableau.b
         s2 = self.s
-        a2 = self.a
-        b2 = self.b
+        a2 = self.tableau.a
+        b2 = self.tableau.b
         a = [[a1[i][j] for j in range(s1)] + [0 for _ in range(s2)] for i in range(s1)]
         a += [[b1[j] for j in range(s1)] + [a2[i][j] for j in range(s2)] for i in range(s2)]
         return RK(a, list(b1) + list(b2))
@@ -122,7 +124,9 @@ class RK:
         return out
 
     def _internal_weights(self, i, t_rep):
-        return sum(self.a[i][j] * self._derivative_weights(j, t_rep) for j in range(self.s))
+        return sum(
+            self.tableau.a[i][j] * self._derivative_weights(j, t_rep) for j in range(self.s)
+        )
 
     def _derivative_weights(self, i, t_rep):
         if (i, repr(t_rep)) in self.deriv_dict:
@@ -136,7 +140,7 @@ class RK:
     def _elementary_weights(self, t_rep):
         if t_rep is None:
             return 1
-        return sum(self.b[i] * self._derivative_weights(i, t_rep) for i in range(self.s))
+        return sum(self.tableau.b[i] * self._derivative_weights(i, t_rep) for i in range(self.s))
 
     def elementary_weights_map(self) -> Map:
         return Map(lambda x: self._elementary_weights(x.list_repr))

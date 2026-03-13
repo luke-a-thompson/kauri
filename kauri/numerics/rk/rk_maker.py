@@ -294,17 +294,10 @@ def _build_williamson_methods(
         b_sym: list[sympy.core.basic.Basic] = [
             sympy.nsimplify(value, rational=True) for value in b_expr
         ]
-        c_sym: list[sympy.core.basic.Basic] = [
-            sympy.simplify(sum(a_sym[i][j] for j in range(stages))) for i in range(stages)
-        ]
-
         verify_williamson_relations(a=a_sym, b=b_sym, A_params=A_params, B=B_params)
         methods.append(
             WilliamsonRK(
                 stages=stages,
-                a=a_sym,
-                b=b_sym,
-                c=c_sym,
                 A=A_params,
                 B=B_params,
                 name=f"generated_explicit_rk_s{stages}_p{order}_{index}_williamson2n",
@@ -315,10 +308,10 @@ def _build_williamson_methods(
 
 @overload
 def build_method_from_ansatz(
-    ansatz: ExplicitAnsatz,
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
+    ansatz: ExplicitAnsatz | None = None,
     constraints: list[Constraint] | None = None,
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,
@@ -329,10 +322,10 @@ def build_method_from_ansatz(
 
 @overload
 def build_method_from_ansatz(
-    ansatz: WilliamsonAnsatz,
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
+    ansatz: WilliamsonAnsatz | None = None,
     constraints: list[Constraint] | None = None,
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,
@@ -342,10 +335,10 @@ def build_method_from_ansatz(
 
 
 def build_method_from_ansatz(
-    ansatz: BaseAnsatz,
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
+    ansatz: BaseAnsatz | None = None,
     constraints: list[Constraint] | None = None,
     fixed_values: dict[str, float | int | sympy.core.basic.Basic] | None = None,
     zero_symbols: list[str] | None = None,

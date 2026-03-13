@@ -16,6 +16,7 @@
 import unittest
 
 import kauri.hopf_algebras.bck as bck
+import sympy
 from kauri import (
     EES25,
     EES27,
@@ -43,6 +44,7 @@ from kauri import (
     trees_up_to_order,
 )
 from kauri import Tree as T
+from kauri.numerics.methods.tableau import ButcherTableau
 
 sample_trees = [
     T(None),
@@ -58,6 +60,21 @@ sample_trees = [
 
 
 class RKTests(unittest.TestCase):
+    def test_butcher_tableau_derived_properties(self):
+        explicit = ButcherTableau([[0, 0], [sympy.Rational(1, 2), 0]], [0, 1])
+        self.assertEqual(2, explicit.s)
+        self.assertEqual([0, sympy.Rational(1, 2)], explicit.c)
+        self.assertTrue(explicit.explicit)
+
+        implicit = ButcherTableau([[sympy.Rational(1, 2)]], [1])
+        self.assertFalse(implicit.explicit)
+
+    def test_butcher_tableau_rejects_invalid_shape(self):
+        with self.assertRaises(ValueError):
+            ButcherTableau([], [])
+        with self.assertRaises(ValueError):
+            ButcherTableau([[0, 0]], [1])
+
     def test_elementary_weights(self):
         # Test using an RK method of order 4
         scheme = rk4
@@ -137,7 +154,7 @@ class RKTests(unittest.TestCase):
         self.assertEqual(1, len(methods))
         self.assertEqual(1, methods[0].order())
         self.assertTrue(methods[0].explicit)
-        self.assertAlmostEqual(1.0, methods[0].b[0])
+        self.assertAlmostEqual(1.0, methods[0].tableau.b[0])
 
     def test_rk_maker_order_two_stage_two_with_fixed_symbol(self):
         methods, _ = build_method_from_ansatz(
@@ -151,9 +168,9 @@ class RKTests(unittest.TestCase):
         method = methods[0]
         self.assertTrue(method.explicit)
         self.assertEqual(2, method.order())
-        self.assertAlmostEqual(0.5, method.a[1][0])
-        self.assertAlmostEqual(0.0, method.b[0])
-        self.assertAlmostEqual(1.0, method.b[1])
+        self.assertAlmostEqual(0.5, method.tableau.a[1][0])
+        self.assertAlmostEqual(0.0, method.tableau.b[0])
+        self.assertAlmostEqual(1.0, method.tableau.b[1])
 
     def test_rk_maker_unsolved_system_returns_empty(self):
         methods, _ = build_method_from_ansatz(
