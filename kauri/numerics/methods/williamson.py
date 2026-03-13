@@ -5,29 +5,59 @@ Williamson 2N representations and commutator-free lift helpers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr
 from kauri.numerics.ansatze.williamson import verify_williamson_relations
 from kauri.numerics.methods.rk import RK
+from kauri.numerics.methods.tableau import ButcherTableau
 
 
 @dataclass(frozen=True)
 class WilliamsonRK:
     stages: int
-    a: list[list[sympy.core.basic.Basic]]
-    b: list[sympy.core.basic.Basic]
-    c: list[sympy.core.basic.Basic]
     A: list[sympy.core.basic.Basic]
     B: list[sympy.core.basic.Basic]
     name: str
+
+    def __post_init__(self) -> None:
+        if len(self.A) != self.stages or len(self.B) != self.stages:
+            raise ValueError("Williamson A and B must both have length equal to stages")
+        if sympy.simplify(self.A[0]) != 0:
+            raise ValueError("Williamson methods require A0 = 0")
+
+    @cached_property
+    def tableau(self) -> ButcherTableau:
+        a: list[list[sympy.core.basic.Basic]] = [
+            [sympy.Integer(0) for _ in range(self.stages)] for _ in range(self.stages)
+        ]
+        for i_idx in range(self.stages):
+            for j_idx in range(i_idx - 1, -1, -1):
+                a[i_idx][j_idx] = (
+                    sympy.simplify(self.B[j_idx])
+                    if j_idx == i_idx - 1
+                    else sympy.simplify(
+                        _as_expr(self.A[j_idx + 1]) * _as_expr(a[i_idx][j_idx + 1])
+                        + _as_expr(self.B[j_idx])
+                    )
+                )
+
+        b: list[sympy.core.basic.Basic] = [sympy.Integer(0) for _ in range(self.stages)]
+        b[self.stages - 1] = sympy.simplify(self.B[self.stages - 1])
+        for i_idx in range(self.stages - 2, -1, -1):
+            b[i_idx] = sympy.simplify(
+                _as_expr(self.A[i_idx + 1]) * _as_expr(b[i_idx + 1]) + _as_expr(self.B[i_idx])
+            )
+
+        return ButcherTableau(a=a, b=b)
 
     def to_cf(self) -> WilliamsonCF:
         return WilliamsonCF(
             base=self,
             name=f"{self.name}_cf",
-            stage_nodes=[sympy.simplify(value) for value in self.c],
+            stage_nodes=[sympy.simplify(value) for value in self.tableau.c],
             storage_a=[sympy.simplify(value) for value in self.A],
             exp_coeffs=[sympy.simplify(value) for value in self.B],
             exponentials_per_update=self.stages,
@@ -78,8 +108,8 @@ class WilliamsonCF:
         def eval_tree(tree):
             return rk_symbolic_weight_for_tableau(
                 t=tree.to_nonplanar_tree(),
-                a_tableau=self.base.a,
-                b_weights=self.base.b,
+                a_tableau=self.base.tableau.a,
+                b_weights=self.base.tableau.b,
                 explicit=True,
             )
 
@@ -91,12 +121,11 @@ def rk_to_williamson_2n(rk: RK) -> WilliamsonRK:
         raise ValueError("Only explicit RK methods can be Williamson 2N in this converter.")
     stages: int = rk.s
     a: list[list[sympy.core.basic.Basic]] = [
-        [sympy.nsimplify(rk.a[i][j], rational=True) for j in range(stages)] for i in range(stages)
-    ]
-    b: list[sympy.core.basic.Basic] = [sympy.nsimplify(value, rational=True) for value in rk.b]
-    c: list[sympy.core.basic.Basic] = [
-        sympy.simplify(sum((_as_expr(a[i][j]) for j in range(stages)), _as_expr(0)))
+        [sympy.nsimplify(rk.tableau.a[i][j], rational=True) for j in range(stages)]
         for i in range(stages)
+    ]
+    b: list[sympy.core.basic.Basic] = [
+        sympy.nsimplify(value, rational=True) for value in rk.tableau.b
     ]
     B: list[sympy.core.basic.Basic] = [sympy.simplify(a[idx + 1][idx]) for idx in range(stages - 1)]
     B.append(sympy.simplify(b[-1]))
@@ -118,11 +147,12 @@ def rk_to_williamson_2n(rk: RK) -> WilliamsonRK:
             b[i_idx - 1] if i_idx == stages - 1 else a[i_idx + 1][i_idx - 1]
         )
         A_params.append(
-            sympy.simplify((_as_expr(a_next_prev) - _as_expr(c[i_idx])) / _as_expr(b_i))
+            sympy.simplify(
+                (_as_expr(a_next_prev) - sum((_as_expr(a[i_idx][j]) for j in range(stages)), _as_expr(0)))
+                / _as_expr(b_i)
+            )
         )
 
     verify_williamson_relations(a=a, b=b, A_params=A_params, B=B)
     method_name: str = rk.name if rk.name is not None else "unnamed_rk"
-    return WilliamsonRK(
-        stages=stages, a=a, b=b, c=c, A=A_params, B=B, name=f"{method_name}_williamson2n"
-    )
+    return WilliamsonRK(stages=stages, A=A_params, B=B, name=f"{method_name}_williamson2n")
