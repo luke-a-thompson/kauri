@@ -87,16 +87,6 @@ def williamson_tableau_expressions(
     return a_expr, b_expr
 
 
-def williamson_tableau_substitutions(stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
-    substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
-    a_expr, b_expr = williamson_tableau_expressions(stages=stages)
-    for i_idx in range(stages):
-        substitutions[sympy.symbols(f"b{i_idx}")] = sympy.simplify(b_expr[i_idx])
-        for j_idx in range(stages):
-            substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.simplify(a_expr[i_idx][j_idx])
-    return substitutions
-
-
 def verify_williamson_relations(
     a: list[list[sympy.core.basic.Basic]],
     b: list[sympy.core.basic.Basic],

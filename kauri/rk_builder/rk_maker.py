@@ -31,7 +31,6 @@ from kauri.rk_builder.williamson import (
     WilliamsonValidation,
     verify_williamson_relations,
     williamson_tableau_expressions,
-    williamson_tableau_substitutions,
     williamson_unknown_symbols,
 )
 from kauri.trees.gentrees import trees_up_to_order
@@ -500,13 +499,19 @@ def build_williamson_rk(
     compiled_constraints = compile_constraints(constraints if constraints is not None else [])
     equations = equations + compiled_constraints.equations
     validator = WilliamsonValidation(validate_2n_polynomials=validate_2n_polynomials)
+    williamson_a_expr, williamson_b_expr = williamson_tableau_expressions(stages=stages)
+    substitution_map: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
+    for i_idx in range(stages):
+        substitution_map[sympy.symbols(f"b{i_idx}")] = sympy.simplify(williamson_b_expr[i_idx])
+        for j_idx in range(stages):
+            substitution_map[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.simplify(
+                williamson_a_expr[i_idx][j_idx]
+            )
     solve_result = _run_symbolic_builder(
         equations=equations,
         trees=trees,
         all_symbols=williamson_unknown_symbols(stages=stages),
-        substitution_maps=[
-            williamson_tableau_substitutions(stages=stages),
-        ],
+        substitution_maps=[substitution_map],
         fixings=compiled_constraints.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
