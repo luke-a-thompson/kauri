@@ -10,9 +10,12 @@ from functools import cached_property
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr
-from kauri.numerics.ansatze.williamson import verify_williamson_relations
 from kauri.numerics.methods.rk import RK
 from kauri.numerics.methods.tableau import ButcherTableau
+from kauri.numerics.rk.williamson import (
+    verify_williamson_relations,
+    williamson_tableau_expressions,
+)
 
 
 @dataclass(frozen=True)
@@ -30,27 +33,16 @@ class WilliamsonRK:
 
     @cached_property
     def tableau(self) -> ButcherTableau:
-        a: list[list[sympy.core.basic.Basic]] = [
-            [sympy.Integer(0) for _ in range(self.stages)] for _ in range(self.stages)
+        a_expr, b_expr = williamson_tableau_expressions(
+            stages=self.stages,
+            A_symbols=self.A,
+            B_symbols=self.B,
+        )
+        a = [
+            [sympy.simplify(a_expr[i_idx][j_idx]) for j_idx in range(self.stages)]
+            for i_idx in range(self.stages)
         ]
-        for i_idx in range(self.stages):
-            for j_idx in range(i_idx - 1, -1, -1):
-                a[i_idx][j_idx] = (
-                    sympy.simplify(self.B[j_idx])
-                    if j_idx == i_idx - 1
-                    else sympy.simplify(
-                        _as_expr(self.A[j_idx + 1]) * _as_expr(a[i_idx][j_idx + 1])
-                        + _as_expr(self.B[j_idx])
-                    )
-                )
-
-        b: list[sympy.core.basic.Basic] = [sympy.Integer(0) for _ in range(self.stages)]
-        b[self.stages - 1] = sympy.simplify(self.B[self.stages - 1])
-        for i_idx in range(self.stages - 2, -1, -1):
-            b[i_idx] = sympy.simplify(
-                _as_expr(self.A[i_idx + 1]) * _as_expr(b[i_idx + 1]) + _as_expr(self.B[i_idx])
-            )
-
+        b = [sympy.simplify(value) for value in b_expr]
         return ButcherTableau(a=a, b=b)
 
     def to_cf(self) -> WilliamsonCF:
@@ -90,13 +82,19 @@ class WilliamsonCF:
         for stage_idx in range(self.base.stages):
             stage_num = stage_idx + 1
             lines.append(
-                f"  K_{stage_num} = F(t + ({sympy.sstr(self.stage_nodes[stage_idx])})*h, Y_{stage_num - 1})"
+                "  "
+                f"K_{stage_num} = F(t + ({sympy.sstr(self.stage_nodes[stage_idx])})*h, "
+                f"Y_{stage_num - 1})"
             )
             lines.append(
-                f"  ΔY_{stage_num} = ({sympy.sstr(self.storage_a[stage_idx])})*ΔY_{stage_num - 1} + h*K_{stage_num}"
+                "  "
+                f"ΔY_{stage_num} = ({sympy.sstr(self.storage_a[stage_idx])})"
+                f"*ΔY_{stage_num - 1} + h*K_{stage_num}"
             )
             lines.append(
-                f"  Y_{stage_num} = exp(({sympy.sstr(self.exp_coeffs[stage_idx])})*ΔY_{stage_num}) * Y_{stage_num - 1}"
+                "  "
+                f"Y_{stage_num} = exp(({sympy.sstr(self.exp_coeffs[stage_idx])})"
+                f"*ΔY_{stage_num}) * Y_{stage_num - 1}"
             )
         lines.append(f"  Y_(t+h) = Y_{self.base.stages}")
         return "\n".join(lines)
@@ -148,7 +146,10 @@ def rk_to_williamson_2n(rk: RK) -> WilliamsonRK:
         )
         A_params.append(
             sympy.simplify(
-                (_as_expr(a_next_prev) - sum((_as_expr(a[i_idx][j]) for j in range(stages)), _as_expr(0)))
+                (
+                    _as_expr(a_next_prev)
+                    - sum((_as_expr(a[i_idx][j]) for j in range(stages)), _as_expr(0))
+                )
                 / _as_expr(b_i)
             )
         )

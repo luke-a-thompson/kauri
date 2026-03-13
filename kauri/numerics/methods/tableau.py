@@ -33,3 +33,19 @@ class ButcherTableau:
                 if self.a[i][j]:
                     return False
         return True
+
+    @cached_property
+    def ssal(self) -> bool:
+        last_stage = self.s - 1
+        if self.a[last_stage][last_stage]:
+            return False
+        for j in range(self.s):
+            if self.a[last_stage][j] != self.b[j]:
+                return False
+        return True
+
+    @cached_property
+    def fsal(self) -> bool:
+        if any(self.a[0][j] for j in range(self.s)):
+            return False
+        return self.ssal

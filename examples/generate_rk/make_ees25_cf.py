@@ -2,7 +2,7 @@
 Derive the commutator-free EES(2,5) scheme.
 
 Starting from the EES(2,5) order conditions (explicit order 2, antisymmetric order 5,
-Williamson 2N ansatz, b0 = 1/4 fixed), the candidate RK method is lifted to its
+Williamson 2N parameterization, b0 = 1/4 fixed), the candidate RK method is lifted to its
 commutator-free Lie-group form and verified up to a chosen truncation order.
 
 Run with:
@@ -10,17 +10,15 @@ Run with:
 """
 
 import sympy
-from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
 from kauri.numerics.methods.cf import verify_cf_ees
-from kauri.numerics.rk.rk_maker import build_method_from_ansatz
+from kauri.numerics.rk.rk_maker import build_williamson_rk
 
 
 def main() -> int:
-    methods, solve_result = build_method_from_ansatz(
+    methods, solve_result = build_williamson_rk(
         order=2,
         stages=3,
         antisymmetric_order=5,
-        ansatz=WilliamsonAnsatz(),
         fixed_values={"b0": sympy.Rational(1, 4)},
         max_solutions=1,
     )

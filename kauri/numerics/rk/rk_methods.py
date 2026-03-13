@@ -21,8 +21,14 @@ We list these below, along with their Butcher tableux.
 from math import sqrt
 
 from kauri.numerics.methods.rk import RK
+from kauri.numerics.methods.tableau import ButcherTableau
 
-euler = RK([[0]], [1], "Euler")
+
+def _rk(a, b, name: str) -> RK:
+    return RK(ButcherTableau(a=a, b=b), name)
+
+
+euler = _rk([[0]], [1], "Euler")
 euler.__doc__ = """
 The Euler method
 
@@ -35,7 +41,7 @@ The Euler method
         \\end{array}
 """
 
-heun_rk2 = RK([[0, 0], [1, 0]], [0.5, 0.5], "Heun RK2")
+heun_rk2 = _rk([[0, 0], [1, 0]], [0.5, 0.5], "Heun RK2")
 heun_rk2.__doc__ = """
 Heun's RK2 method
 
@@ -49,7 +55,7 @@ Heun's RK2 method
         \\end{array}
 """
 
-midpoint = RK([[0, 0], [0.5, 0]], [0, 1], "Midpoint")
+midpoint = _rk([[0, 0], [0.5, 0]], [0, 1], "Midpoint")
 midpoint.__doc__ = """
 The midpoint method
 
@@ -63,7 +69,7 @@ The midpoint method
         \\end{array}
 """
 
-kutta_rk3 = RK([[0, 0, 0], [0.5, 0, 0], [-1, 2, 0]], [1 / 6, 2 / 3, 1 / 6], "Kutta RK3")
+kutta_rk3 = _rk([[0, 0, 0], [0.5, 0, 0], [-1, 2, 0]], [1 / 6, 2 / 3, 1 / 6], "Kutta RK3")
 kutta_rk3.__doc__ = """
 Kutta's RK3 method
 
@@ -78,7 +84,7 @@ Kutta's RK3 method
         \\end{array}
 """
 
-heun_rk3 = RK([[0, 0, 0], [1 / 3, 0, 0], [0, 2 / 3, 0]], [1 / 4, 0, 3 / 4], "Heun RK3")
+heun_rk3 = _rk([[0, 0, 0], [1 / 3, 0, 0], [0, 2 / 3, 0]], [1 / 4, 0, 3 / 4], "Heun RK3")
 heun_rk3.__doc__ = """
 Heun's RK3 method
 
@@ -94,7 +100,7 @@ Heun's RK3 method
 """
 
 # Ralston's Third-Order Method (RK3)
-ralston_rk3 = RK([[0, 0, 0], [1 / 2, 0, 0], [0, 3 / 4, 0]], [2 / 9, 1 / 3, 4 / 9], "Ralston RK3")
+ralston_rk3 = _rk([[0, 0, 0], [1 / 2, 0, 0], [0, 3 / 4, 0]], [2 / 9, 1 / 3, 4 / 9], "Ralston RK3")
 ralston_rk3.__doc__ = """
 Ralston's RK3 method
 
@@ -109,7 +115,7 @@ Ralston's RK3 method
         \\end{array}
 """
 
-rk4 = RK(
+rk4 = _rk(
     [[0, 0, 0, 0], [0.5, 0, 0, 0], [0, 0.5, 0, 0], [0, 0, 1, 0]],
     [1 / 6, 1 / 3, 1 / 3, 1 / 6],
     "RK4",
@@ -129,7 +135,7 @@ The RK4 method
         \\end{array}
 """
 
-ralston_rk4 = RK(
+ralston_rk4 = _rk(
     [
         [0, 0, 0, 0],
         [2 / 5, 0, 0, 0],
@@ -165,7 +171,7 @@ Ralston's RK4 method
 
 """
 
-nystrom_rk5 = RK(
+nystrom_rk5 = _rk(
     [
         [0, 0, 0, 0, 0, 0],
         [1 / 3, 0, 0, 0, 0, 0],
@@ -199,7 +205,7 @@ Nyström's RK5 method
 ################################# Implicit Methods ####################################
 #######################################################################################
 
-backward_euler = RK([[1]], [1], "Backward Euler")
+backward_euler = _rk([[1]], [1], "Backward Euler")
 backward_euler.__doc__ = """
 The backward Euler method
 
@@ -212,7 +218,7 @@ The backward Euler method
         \\end{array}
 """
 
-implicit_midpoint = RK([[0.5]], [1], "Implicit Midpoint")
+implicit_midpoint = _rk([[0.5]], [1], "Implicit Midpoint")
 implicit_midpoint.__doc__ = """
 The implicit midpoint method
 
@@ -225,7 +231,7 @@ The implicit midpoint method
         \\end{array}
 """
 
-crank_nicolson = RK([[0, 0], [0.5, 0.5]], [0.5, 0.5], "Crank Nicolson")
+crank_nicolson = _rk([[0, 0], [0.5, 0.5]], [0.5, 0.5], "Crank Nicolson")
 crank_nicolson.__doc__ = """
 The Crank Nicolson method
 
@@ -239,7 +245,7 @@ The Crank Nicolson method
         \\end{array}
 """
 
-gauss6 = RK(
+gauss6 = _rk(
     [
         [5 / 36, 2 / 9 - sqrt(15) / 15, 5 / 36 - sqrt(15) / 30],
         [5 / 36 + sqrt(15) / 24, 2 / 9, 5 / 36 - sqrt(15) / 24],
@@ -263,7 +269,7 @@ Kuntzmann & Butcher method of order 6, based on Gaussian quadrature
 
 """
 
-radau_iia = RK(
+radau_iia = _rk(
     [
         [(88 - 7 * sqrt(6)) / 360, (296 - 169 * sqrt(6)) / 1800, (-2 + 3 * sqrt(6)) / 225],
         [(296 + 169 * sqrt(6)) / 1800, (88 + 7 * sqrt(6)) / 360, (-2 - 3 * sqrt(6)) / 225],
@@ -287,7 +293,7 @@ The Radau IIA method of order 5
 
 """
 
-lobatto6 = RK(
+lobatto6 = _rk(
     [
         [0, 0, 0, 0],
         [(5 + sqrt(5)) / 60, 1 / 6, (15 - 7 * sqrt(5)) / 60, 0],
@@ -344,7 +350,7 @@ def EES25(x):
 
     b = [b1, b2, b3]
     A = [[0, 0, 0], [a21, 0, 0], [a31, a32, 0]]
-    return RK(A, b, "EES25")
+    return _rk(A, b, "EES25")
 
 
 def EES27(x, plus=True):
@@ -399,4 +405,4 @@ def EES27(x, plus=True):
     b = [b1, b2, b3, b4]
     A = [[0, 0, 0, 0], [a21, 0, 0, 0], [a31, a32, 0, 0], [a41, a42, a43, 0]]
 
-    return RK(A, b, "EES27")
+    return _rk(A, b, "EES27")

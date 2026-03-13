@@ -21,7 +21,6 @@ from kauri.hopf_algebras import bck, cem
 from kauri.hopf_algebras.bseries import BSeries, elementary_differential
 from kauri.hopf_algebras.maps import Map, exact_weights, ident, omega, sign
 from kauri.hopf_algebras.oddeven import id_sqrt, minus, plus
-from kauri.numerics.ansatze.williamson import WilliamsonAnsatz
 from kauri.numerics.methods.cf import VerificationResult, verify_cf_ees
 from kauri.numerics.methods.rk import RK
 from kauri.numerics.methods.williamson import WilliamsonCF, WilliamsonRK
@@ -33,7 +32,7 @@ from kauri.numerics.planar_trees.planar_basis import (
 )
 from kauri.numerics.rk.rk import rk_order_cond, rk_symbolic_weight
 from kauri.numerics.rk.rk_constraints import Constraint
-from kauri.numerics.rk.rk_maker import SolveResult, build_method_from_ansatz
+from kauri.numerics.rk.rk_maker import SolveResult, build_explicit_rk, build_williamson_rk
 from kauri.numerics.rk.rk_methods import (
     EES25,
     EES27,

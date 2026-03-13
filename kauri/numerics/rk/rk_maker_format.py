@@ -13,7 +13,7 @@ def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:
         else "none"
     )
     return [
-        ("ansatz", result.ansatz),
+        ("parameterization", result.parameterization),
         ("reduced equations", str(len(result.equations))),
         ("active unknowns", ", ".join(result.unknowns)),
         ("free symbols", ", ".join(result.free_symbols)),
@@ -40,7 +40,7 @@ def result_to_text(
     if len(result.solutions) > 0:
         lines.append("")
         lines.append(
-            "Use build_method_from_ansatz return value `methods` for constructed methods."
+            "Use the builder return value `methods` for constructed methods."
             " This object only stores solve metadata and symbolic solutions."
         )
     return "\n".join(lines)
@@ -65,7 +65,7 @@ def result_to_latex(
 
     if len(result.solutions) > 0:
         lines.append(
-            r"\textit{Use make\_explicit\_rk\_methods return value methods for constructed methods."
+            r"\textit{Use the builder return value methods for constructed methods."
             r" This object only stores solve metadata and symbolic solutions.}"
         )
 

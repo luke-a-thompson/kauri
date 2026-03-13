@@ -32,6 +32,7 @@ dependencies = [
   "sympy>=1.12",
   "scipy>=1.13",
   "tqdm",
+  "diffrax>=0.7.0",
 ]
 
 [project.urls]

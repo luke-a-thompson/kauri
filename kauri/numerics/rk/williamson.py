@@ -1,5 +1,5 @@
 """
-Williamson/2N ansatz and shared parameterisation helpers.
+Williamson/2N symbolic helpers for RK construction.
 """
 
 from dataclasses import dataclass
@@ -7,7 +7,14 @@ from dataclasses import dataclass
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr
-from kauri.numerics.ansatze.explicit import ExplicitAnsatz
+
+
+def williamson_unknown_symbols(stages: int) -> list[sympy.Symbol]:
+    if stages <= 0:
+        raise ValueError("stages must be positive")
+    return [sympy.symbols(f"B{i_idx}") for i_idx in range(stages)] + [
+        sympy.symbols(f"A{i_idx}") for i_idx in range(1, stages)
+    ]
 
 
 def generate_2n_polynomial_constraints(stages: int) -> list[sympy.core.basic.Basic]:
@@ -43,8 +50,8 @@ def is_2n_tableau(
 
 def williamson_tableau_expressions(
     stages: int,
-    A_symbols: list[sympy.Symbol] | None = None,
-    B_symbols: list[sympy.Symbol] | None = None,
+    A_symbols: list[sympy.Symbol] | list[sympy.core.basic.Basic] | None = None,
+    B_symbols: list[sympy.Symbol] | list[sympy.core.basic.Basic] | None = None,
 ) -> tuple[list[list[sympy.core.basic.Basic]], list[sympy.core.basic.Basic]]:
     if stages <= 0:
         raise ValueError("stages must be positive")
@@ -80,6 +87,16 @@ def williamson_tableau_expressions(
     return a_expr, b_expr
 
 
+def williamson_tableau_substitutions(stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
+    substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
+    a_expr, b_expr = williamson_tableau_expressions(stages=stages)
+    for i_idx in range(stages):
+        substitutions[sympy.symbols(f"b{i_idx}")] = sympy.simplify(b_expr[i_idx])
+        for j_idx in range(stages):
+            substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.simplify(a_expr[i_idx][j_idx])
+    return substitutions
+
+
 def verify_williamson_relations(
     a: list[list[sympy.core.basic.Basic]],
     b: list[sympy.core.basic.Basic],
@@ -107,25 +124,9 @@ def verify_williamson_relations(
             raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")
 
 
-@dataclass
-class WilliamsonAnsatz(ExplicitAnsatz):
+@dataclass(frozen=True)
+class WilliamsonValidation:
     validate_2n_polynomials: bool = True
-
-    def unknown_symbols(self, stages: int) -> list[sympy.Symbol]:
-        return [sympy.symbols(f"B{i_idx}") for i_idx in range(stages)] + [
-            sympy.symbols(f"A{i_idx}") for i_idx in range(1, stages)
-        ]
-
-    def tableau_substitutions(self, stages: int) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
-        substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
-        a_expr, b_expr = williamson_tableau_expressions(stages=stages)
-        for i_idx in range(stages):
-            substitutions[sympy.symbols(f"b{i_idx}")] = sympy.simplify(b_expr[i_idx])
-            for j_idx in range(stages):
-                substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.simplify(
-                    a_expr[i_idx][j_idx]
-                )
-        return substitutions
 
     def post_validate(
         self,

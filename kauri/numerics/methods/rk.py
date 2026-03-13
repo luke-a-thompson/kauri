@@ -1,8 +1,7 @@
 """Runge-Kutta method representation (no runtime stepping/integration)."""
 
 import copy
-
-import sympy
+from functools import cached_property
 
 from kauri.hopf_algebras.bck import counit
 from kauri.hopf_algebras.maps import Map, exact_weights, sign
@@ -13,67 +12,24 @@ _EXACT_SUBSTITUTION_LOG_MAP = exact_weights.log()
 
 
 class RK:
-    def __init__(self, a, b=None, name=None):
+    def __init__(self, tableau: ButcherTableau, name: str | None = None):
         self.name = name
-        if isinstance(a, ButcherTableau):
-            if b is not None:
-                raise ValueError("Parameter 'b' must be omitted when passing a ButcherTableau")
-            self.tableau = a
-        else:
-            if b is None:
-                raise ValueError("Parameter 'b' is required when passing a raw tableau matrix")
-            self.tableau = ButcherTableau(a=a, b=b)
-        self.s = self.tableau.s
-        self.explicit = self.tableau.explicit
+        self.tableau = tableau
         self.deriv_dict = {}
         for i in range(self.s):
             self.deriv_dict[(i, repr(None))] = 1
             self.deriv_dict[(i, repr([]))] = 1
 
+    @cached_property
+    def s(self) -> int:
+        return self.tableau.s
+
+    @cached_property
+    def explicit(self) -> bool:
+        return self.tableau.explicit
+
     def __repr__(self):
-        out = "["
-        for i in range(self.s - 1):
-            out += repr(self.tableau.a[i]) + ",\n"
-        out += repr(self.tableau.a[-1]) + "]\n"
-        out += repr(self.tableau.b)
-        return out
-
-    def _rationalised_tableau(
-        self,
-    ) -> tuple[
-        list[sympy.core.basic.Basic],
-        list[list[sympy.core.basic.Basic]],
-        list[sympy.core.basic.Basic],
-    ]:
-        c_vector = [sympy.nsimplify(value, rational=True) for value in self.tableau.c]
-        a_matrix = [
-            [sympy.nsimplify(self.tableau.a[i][j], rational=True) for j in range(self.s)]
-            for i in range(self.s)
-        ]
-        b_vector = [sympy.nsimplify(value, rational=True) for value in self.tableau.b]
-        return c_vector, a_matrix, b_vector
-
-    def to_text(self, max_cell_chars: int = 48) -> str:
-        from kauri.numerics.rk.rk_maker_format import format_tableau_text
-
-        c_vector, a_matrix, b_vector = self._rationalised_tableau()
-        return format_tableau_text(
-            c_vector=c_vector,
-            a_matrix=a_matrix,
-            b_vector=b_vector,
-            max_cell_chars=max_cell_chars,
-        )
-
-    def to_latex(self, max_cell_chars: int = 48) -> str:
-        from kauri.numerics.rk.rk_maker_format import format_tableau_latex
-
-        c_vector, a_matrix, b_vector = self._rationalised_tableau()
-        return format_tableau_latex(
-            c_vector=c_vector,
-            a_matrix=a_matrix,
-            b_vector=b_vector,
-            max_cell_chars=max_cell_chars,
-        )
+        return f"RK(tableau={self.tableau!r}, name={self.name!r})"
 
     def _inverse(self):
         b_inv = [-self.tableau.b[i] for i in range(self.s)]
@@ -81,12 +37,14 @@ class RK:
             [self.tableau.a[i][j] - self.tableau.b[j] for j in range(self.s)]
             for i in range(self.s)
         ]
-        return RK(a_inv, b_inv)
+        return RK(ButcherTableau(a=a_inv, b=b_inv))
 
     def reverse(self) -> "RK":
         return RK(
-            [[-self.tableau.a[i][j] for j in range(self.s)] for i in range(self.s)],
-            [-self.tableau.b[i] for i in range(self.s)],
+            ButcherTableau(
+                a=[[-self.tableau.a[i][j] for j in range(self.s)] for i in range(self.s)],
+                b=[-self.tableau.b[i] for i in range(self.s)],
+            )
         )
 
     def adjoint(self) -> "RK":
@@ -99,7 +57,7 @@ class RK:
             ]
             for i in range(self.s)
         ]
-        return RK(a_adj, b_adj)
+        return RK(ButcherTableau(a=a_adj, b=b_adj))
 
     def __mul__(self, other: "RK") -> "RK":
         s1 = other.s
@@ -110,11 +68,11 @@ class RK:
         b2 = self.tableau.b
         a = [[a1[i][j] for j in range(s1)] + [0 for _ in range(s2)] for i in range(s1)]
         a += [[b1[j] for j in range(s1)] + [a2[i][j] for j in range(s2)] for i in range(s2)]
-        return RK(a, list(b1) + list(b2))
+        return RK(ButcherTableau(a=a, b=list(b1) + list(b2)))
 
     def __pow__(self, exponent: int) -> "RK":
         if exponent == 0:
-            return RK([[0]], [0])
+            return RK(ButcherTableau(a=[[0]], b=[0]))
         expn_ = exponent
         out = self._inverse() if exponent < 0 else copy.deepcopy(self)
         if exponent < 0:

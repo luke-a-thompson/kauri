@@ -23,6 +23,7 @@ from kauri import (
     SolveResult,
     Tree,
     backward_euler,
+    build_explicit_rk,
     crank_nicolson,
     euler,
     exact_weights,
@@ -32,7 +33,6 @@ from kauri import (
     implicit_midpoint,
     kutta_rk3,
     lobatto6,
-    build_method_from_ansatz,
     midpoint,
     nystrom_rk5,
     radau_iia,
@@ -65,9 +65,35 @@ class RKTests(unittest.TestCase):
         self.assertEqual(2, explicit.s)
         self.assertEqual([0, sympy.Rational(1, 2)], explicit.c)
         self.assertTrue(explicit.explicit)
+        self.assertFalse(explicit.ssal)
+        self.assertFalse(explicit.fsal)
 
         implicit = ButcherTableau([[sympy.Rational(1, 2)]], [1])
         self.assertFalse(implicit.explicit)
+        self.assertFalse(implicit.ssal)
+        self.assertFalse(implicit.fsal)
+
+        fsal = ButcherTableau(
+            [
+                [0, 0, 0],
+                [sympy.Rational(1, 2), 0, 0],
+                [sympy.Rational(1, 4), sympy.Rational(3, 4), 0],
+            ],
+            [sympy.Rational(1, 4), sympy.Rational(3, 4), 0],
+        )
+        self.assertTrue(fsal.ssal)
+        self.assertTrue(fsal.fsal)
+
+        non_fsal = ButcherTableau(
+            [
+                [1, 0, 0],
+                [sympy.Rational(1, 2), 0, 0],
+                [sympy.Rational(1, 4), sympy.Rational(3, 4), 0],
+            ],
+            [sympy.Rational(1, 4), sympy.Rational(3, 4), 0],
+        )
+        self.assertTrue(non_fsal.ssal)
+        self.assertFalse(non_fsal.fsal)
 
     def test_butcher_tableau_rejects_invalid_shape(self):
         with self.assertRaises(ValueError):
@@ -103,7 +129,7 @@ class RKTests(unittest.TestCase):
         ]
         orders = [1, 2, 2, 3, 3, 3, 4, 4, 5, 1, 2, 2, 6, 5, 6]
 
-        for m, ord in zip(methods, orders):
+        for m, ord in zip(methods, orders, strict=True):
             self.assertEqual(ord, m.order(), msg=m.name)
 
     def test_symbolic_weight(self):
@@ -148,7 +174,7 @@ class RKTests(unittest.TestCase):
         self.assertEqual(7, rk.antisymmetric_order())
 
     def test_rk_maker_type_and_order_one(self):
-        methods, result = build_method_from_ansatz(order=1, stages=1, max_solutions=1)
+        methods, result = build_explicit_rk(order=1, stages=1, max_solutions=1)
 
         self.assertIsInstance(result, SolveResult)
         self.assertEqual(1, len(methods))
@@ -157,7 +183,7 @@ class RKTests(unittest.TestCase):
         self.assertAlmostEqual(1.0, methods[0].tableau.b[0])
 
     def test_rk_maker_order_two_stage_two_with_fixed_symbol(self):
-        methods, _ = build_method_from_ansatz(
+        methods, _ = build_explicit_rk(
             order=2,
             stages=2,
             zero_symbols=["b0"],
@@ -173,7 +199,7 @@ class RKTests(unittest.TestCase):
         self.assertAlmostEqual(1.0, method.tableau.b[1])
 
     def test_rk_maker_unsolved_system_returns_empty(self):
-        methods, _ = build_method_from_ansatz(
+        methods, _ = build_explicit_rk(
             order=4,
             stages=2,
             max_solutions=1,

@@ -1,15 +1,11 @@
 import unittest
 
 import sympy
-from kauri import build_method_from_ansatz
-from kauri.numerics.ansatze.williamson import (
-    WilliamsonAnsatz,
-    generate_2n_polynomial_constraints,
-    is_2n_tableau,
-)
+from kauri import build_williamson_rk
 from kauri.numerics.methods.rk import RK
 from kauri.numerics.methods.williamson import WilliamsonRK
 from kauri.numerics.rk.rk_constraints import Constraint, compile_constraints
+from kauri.numerics.rk.williamson import generate_2n_polynomial_constraints, is_2n_tableau
 
 
 class RKAnsatzTests(unittest.TestCase):
@@ -43,11 +39,10 @@ class RKAnsatzTests(unittest.TestCase):
             residual = sympy.simplify(sympy.expand(equation.subs(substitutions)))
             self.assertEqual(sympy.Integer(0), residual)
 
-    def test_rk_maker_williamson_ansatz_smoke(self):
-        methods, solve_result = build_method_from_ansatz(
+    def test_build_williamson_rk_smoke(self):
+        methods, solve_result = build_williamson_rk(
             order=1,
             stages=3,
-            ansatz=WilliamsonAnsatz(),
             fixed_values={
                 "A1": 0,
                 "A2": 0,
@@ -57,16 +52,15 @@ class RKAnsatzTests(unittest.TestCase):
             },
             max_solutions=1,
         )
-        self.assertEqual("WilliamsonAnsatz", solve_result.ansatz)
+        self.assertEqual("williamson_2n", solve_result.parameterization)
         self.assertGreaterEqual(len(methods), 1)
         self.assertTrue(all(isinstance(method, WilliamsonRK) for method in methods))
 
-    def test_recover_ees25_via_williamson_ansatz(self):
-        methods, _ = build_method_from_ansatz(
+    def test_recover_ees25_via_williamson_builder(self):
+        methods, _ = build_williamson_rk(
             order=2,
             stages=3,
             antisymmetric_order=5,
-            ansatz=WilliamsonAnsatz(),
             fixed_values={"b0": sympy.Rational(1, 4)},
             max_solutions=1,
         )
