@@ -9,12 +9,11 @@ from functools import cached_property
 
 import sympy
 
-from kauri.hopf_algebras.utils import _as_expr
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.rk_builder.williamson import (
-    verify_williamson_relations,
     williamson_tableau_expressions,
 )
+
 
 @dataclass(frozen=True)
 class WilliamsonRecursion:
@@ -26,7 +25,9 @@ class WilliamsonRecursion:
         if stages == 0:
             raise ValueError("Parameter 'b' must be a non-empty vector")
         if len(self.A) != stages or any(len(row) != stages for row in self.A):
-            raise ValueError("Parameter 'a' must be a square stages x stages matrix and b a vector of length stages")
+            raise ValueError(
+                "Parameter 'a' must be a square stages x stages matrix and b a vector of length stages"
+            )
 
     @cached_property
     def stages(self) -> int:
@@ -50,7 +51,8 @@ class WilliamsonRK:
     def tableau(self) -> ButcherTableau:
         a_expr, b_expr = williamson_tableau_expressions(
             stages=self.recursion.stages,
-            A_symbols=[sympy.Integer(0)] + [self.recursion.A[i][i - 1] for i in range(1, self.recursion.stages)],
+            A_symbols=[sympy.Integer(0)]
+            + [self.recursion.A[i][i - 1] for i in range(1, self.recursion.stages)],
             B_symbols=self.recursion.B,
         )
         a = [
@@ -65,7 +67,10 @@ class WilliamsonRK:
             base=self,
             name=f"{self.name}_cf",
             stage_nodes=[sympy.simplify(value) for value in self.tableau.c],
-            storage_a=[sympy.simplify(self.recursion.A[i][i - 1] if i > 0 else sympy.Integer(0)) for i in range(self.recursion.stages)],
+            storage_a=[
+                sympy.simplify(self.recursion.A[i][i - 1] if i > 0 else sympy.Integer(0))
+                for i in range(self.recursion.stages)
+            ],
             exp_coeffs=[sympy.simplify(value) for value in self.recursion.B],
             exponentials_per_update=self.recursion.stages,
         )
@@ -119,5 +124,3 @@ class WilliamsonCF:
 
         rk_weights = RK(tableau=self.base.tableau, name=self.base.name).elementary_weights_map()
         return MKWMap(lambda tree: rk_weights(tree.to_nonplanar_tree()))
-
-

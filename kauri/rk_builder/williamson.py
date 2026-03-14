@@ -110,5 +110,3 @@ def williamson_tableau_expressions(
             _as_expr(A_vals[i_idx + 1]) * _as_expr(b_expr[i_idx + 1]) + _as_expr(B_vals[i_idx])
         )
     return a_expr, b_expr
-
-

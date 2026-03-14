@@ -17,7 +17,6 @@ import unittest
 
 import kauri.hopf_algebras.bck as bck
 import sympy
-from kauri.rk_builder.rk_constraints import SetConstraint
 from kauri import (
     EES25,
     EES27,
@@ -45,7 +44,8 @@ from kauri import (
     trees_up_to_order,
 )
 from kauri import Tree as T
-from kauri.methods.rk import ButcherTableau, RK
+from kauri.methods.rk import RK, ButcherTableau
+from kauri.rk_builder.rk_constraints import SetConstraint
 from kauri.rk_builder.rk_maker_format import format_tableau_latex, format_tableau_text
 
 sample_trees = [
@@ -248,6 +248,56 @@ class RKTests(unittest.TestCase):
 
         embedded_method = RK(ButcherTableau(a=method.tableau.a, b=method.tableau.b_hat))
         self.assertEqual(1, embedded_method.order())
+
+    def test_rk_builder_embedded_family_message(self):
+        methods, result = build_explicit_rk(
+            order=2,
+            stages=2,
+            constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Integer(0))],
+            embedded=True,
+            max_solutions=1,
+        )
+
+        self.assertEqual(0, len(methods))
+        self.assertEqual(["bhat1"], result.free_symbols)
+        self.assertIn(
+            "No concrete method found; the solver returned a family parameterised by [bhat1].",
+            str(result),
+        )
+
+    def test_rk_builder_embedded_rejects_degenerate_error_estimator(self):
+        methods, result = build_explicit_rk(
+            order=2,
+            stages=3,
+            antisymmetric_order=5,
+            constraints=[
+                SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
+                SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
+                SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 2)),
+            ],
+            embedded=True,
+            max_solutions=1,
+        )
+
+        self.assertEqual(0, len(methods))
+        self.assertEqual([], result.solutions)
+
+    def test_rk_builder_embedded_accepts_exact_lower_order_estimator(self):
+        methods, _ = build_explicit_rk(
+            order=2,
+            stages=3,
+            antisymmetric_order=5,
+            constraints=[
+                SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
+                SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
+                SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 4)),
+            ],
+            embedded=True,
+            max_solutions=1,
+        )
+
+        self.assertEqual(1, len(methods))
+        self.assertEqual([0.25, 0.25, 0.5], methods[0].tableau.b_hat)
 
     def test_tableau_formatting_with_embedded_row(self):
         embedded = ButcherTableau(

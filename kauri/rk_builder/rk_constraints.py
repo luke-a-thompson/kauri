@@ -63,8 +63,10 @@ def compile_constraints(constraints: list[AnyConstraint]) -> CompiledConstraints
     alias_substitutions: dict[sympy.Symbol, sympy.Basic] = {}
     for constraint in constraints:
         symbols = (
-            [constraint.symbol] if isinstance(constraint, SetConstraint)
-            else [constraint.lhs, constraint.rhs] if isinstance(constraint, TieConstraint)
+            [constraint.symbol]
+            if isinstance(constraint, SetConstraint)
+            else [constraint.lhs, constraint.rhs]
+            if isinstance(constraint, TieConstraint)
             else []
         )
         for symbol in symbols:

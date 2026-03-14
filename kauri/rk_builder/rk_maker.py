@@ -23,7 +23,7 @@ import sympy
 from kauri.hopf_algebras.bck import counit
 from kauri.hopf_algebras.maps import sign
 from kauri.methods.rk import RK, ButcherTableau
-from kauri.methods.williamson import WilliamsonRK, WilliamsonRecursion
+from kauri.methods.williamson import WilliamsonRecursion, WilliamsonRK
 from kauri.rk_builder.rk import _rk_symbolic_weights_map, rk_order_cond
 from kauri.rk_builder.rk_constraints import (
     AnyConstraint,
@@ -144,7 +144,6 @@ def generate_explicit_antisymmetric_equations(
     return equations, trees
 
 
-
 def _merge_substitution_maps(
     substitution_maps: list[dict[sympy.Symbol, sympy.core.basic.Basic]],
 ) -> dict[sympy.Symbol, sympy.core.basic.Basic]:
@@ -238,6 +237,23 @@ def _solution_is_numeric(named_solution: dict[str, sympy.core.basic.Basic]) -> b
     return all(not sympy.sympify(value).free_symbols for value in named_solution.values())
 
 
+def _has_exact_embedded_order(
+    solution: dict[str, sympy.core.basic.Basic], order: int, stages: int
+) -> bool:
+    b_hat_symbols = embedded_weight_symbols(stages=stages)
+    higher_order_equations, _ = generate_explicit_order_equations(
+        order=order,
+        stages=stages,
+        rationalise=True,
+        weight_symbols=b_hat_symbols,
+    )
+    substitutions = [(sympy.symbols(name), value) for name, value in solution.items()]
+    return any(
+        sympy.simplify(sympy.expand(equation.subs(substitutions))) != 0
+        for equation in higher_order_equations
+    )
+
+
 def _verify_solution(
     equations: list[sympy.core.basic.Basic],
     symbol_values: dict[sympy.Symbol, sympy.core.basic.Basic],
@@ -247,7 +263,6 @@ def _verify_solution(
         if sympy.simplify(sympy.expand(equation.subs(substitutions))) != 0:
             return False
     return True
-
 
 
 def _run_symbolic_builder(
@@ -266,7 +281,9 @@ def _run_symbolic_builder(
     for symbol, value in fixings.items():
         resolved_value = sympy.sympify(value)
         if symbol in substitutions_map:
-            equations.append(sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value)))
+            equations.append(
+                sympy.simplify(sympy.expand(substitutions_map[symbol] - resolved_value))
+            )
         else:
             substitutions_map[symbol] = resolved_value
 
@@ -310,8 +327,7 @@ def _run_symbolic_builder(
         full_solutions.append(merged)
 
     named_solutions = [
-        {str(symbol): value for symbol, value in solution.items()}
-        for solution in full_solutions
+        {str(symbol): value for symbol, value in solution.items()} for solution in full_solutions
     ]
 
     return SolveResult(
@@ -338,7 +354,9 @@ def _prepare_build(
         raise ValueError("stages must be positive")
     if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
         raise ValueError("antisymmetric_order must be positive")
-    equations, trees = generate_explicit_order_equations(order=order, stages=stages, rationalise=True)
+    equations, trees = generate_explicit_order_equations(
+        order=order, stages=stages, rationalise=True
+    )
     if antisymmetric_order is not None:
         antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
             antisymmetric_order=antisymmetric_order, stages=stages, rationalise=True
@@ -452,6 +470,21 @@ def build_explicit_rk(
         parameterization=parameterization,
         stages=stages,
     )
+    if embedded:
+        solve_result = SolveResult(
+            solutions=[
+                solution
+                for solution in solve_result.solutions
+                if _has_exact_embedded_order(solution=solution, order=order, stages=stages)
+            ],
+            equations=solve_result.equations,
+            unknowns=solve_result.unknowns,
+            free_symbols=solve_result.free_symbols,
+            free_symbol_relations=solve_result.free_symbol_relations,
+            trees=solve_result.trees,
+            parameterization=solve_result.parameterization,
+            fixings=solve_result.fixings,
+        )
     return (
         _build_explicit_methods(
             named_solutions=solve_result.solutions,

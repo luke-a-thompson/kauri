@@ -1,9 +1,8 @@
-from typing import TYPE_CHECKING
 
 import sympy
 
 from kauri.methods.rk import ButcherTableau
-
+from kauri.methods.williamson import WilliamsonRecursion
 from kauri.rk_builder.rk_maker import SolveResult
 
 
@@ -22,10 +21,23 @@ def _result_metadata(result: SolveResult) -> list[tuple[str, str]]:
     ]
 
 
+def _family_summary_text(result: SolveResult) -> str | None:
+    if len(result.solutions) == 0 or len(result.free_symbols) == 0:
+        return None
+    free_symbols = ", ".join(result.free_symbols)
+    return (
+        "No concrete method found; the solver returned a family parameterised by "
+        f"[{free_symbols}]."
+    )
+
+
 def result_to_text(result: SolveResult) -> str:
     lines: list[str] = ["=== Explicit RK Maker Result ==="]
     for key, value in _result_metadata(result):
         lines.append(f"{key}: {value}")
+    family_summary = _family_summary_text(result)
+    if family_summary is not None:
+        lines.append(family_summary)
     if len(result.free_symbols) > 0:
         if len(result.free_symbol_relations) == 0:
             lines.append("relations among free symbols: none found")
@@ -52,6 +64,9 @@ def result_to_latex(result: SolveResult, standalone: bool = True) -> str:
     for key, value in _result_metadata(result):
         lines.append(rf"\item {key}: \texttt{{{value}}}")
     lines.append(r"\end{itemize}")
+    family_summary = _family_summary_text(result)
+    if family_summary is not None:
+        lines.append(rf"\textit{{{family_summary}}}")
     if len(result.solutions) > 0:
         lines.append(
             r"\textit{Use the builder return value methods for constructed methods."
@@ -140,7 +155,9 @@ def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> s
         " & ".join([""] + [cell(tableau.b[j]) for j in range(s)]) + r"\\",
     ]
     if tableau.b_hat is not None:
-        array_lines.append(r"\hat{b} & " + " & ".join(cell(tableau.b_hat[j]) for j in range(s)) + r"\\")
+        array_lines.append(
+            r"\hat{b} & " + " & ".join(cell(tableau.b_hat[j]) for j in range(s)) + r"\\"
+        )
     array_lines.append(r"\end{array}")
     tableau_latex = "\n".join(array_lines)
 
@@ -151,3 +168,6 @@ def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> s
         lines.append(rf"{name} &= {sympy.latex(expr)}\\")
     lines += [r"\end{aligned}", r"\]"]
     return "\n".join(lines)
+
+def format_williamson_recursion_text(recursion: WilliamsonRecursion):
+    pass

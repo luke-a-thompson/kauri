@@ -487,7 +487,9 @@ class Tree:
                 next(t) # returns Tree([[[[]]]])
         """
         if self._max_color > 0:
-            warnings.warn("Calling next() on a labelled tree will ignore the labelling.", stacklevel=2)
+            warnings.warn(
+                "Calling next() on a labelled tree will ignore the labelling.", stacklevel=2
+            )
         if self.list_repr is None:
             return Tree([])
 
@@ -871,7 +873,9 @@ class Forest:
             f2.singleton_reduced() #Returns Tree([])
         """
         if self.colors() > 1:
-            warnings.warn("Singleton reduced representation will not respect colorings", stacklevel=2)
+            warnings.warn(
+                "Singleton reduced representation will not respect colorings", stacklevel=2
+            )
         out = self.simplify()
         if len(out.tree_list) > 1:
             new_tree_list = tuple(filter(lambda x: len(x.list_repr) != 1, out.tree_list))
@@ -1077,7 +1081,9 @@ class ForestSum:
                 new_forest_list.append(f_reduced)
                 new_coeff_list.append(c)
 
-        result = tuple((c, f) for c, f in zip(new_coeff_list, new_forest_list, strict=False) if c != 0)
+        result = tuple(
+            (c, f) for c, f in zip(new_coeff_list, new_forest_list, strict=False) if c != 0
+        )
 
         if not result:
             return ZERO_FOREST_SUM

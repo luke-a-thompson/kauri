@@ -5,13 +5,14 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 import sympy
 
 from kauri.hopf_algebras.bck import counit
 from kauri.hopf_algebras.maps import Map, exact_weights, sign
 from kauri.trees.gentrees import trees_of_order
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from kauri.methods.williamson import WilliamsonRK
 _EXACT_SUBSTITUTION_LOG_MAP = exact_weights.log()
@@ -77,6 +78,11 @@ class ButcherTableau:
 
         return format_tableau_text(self)
 
+    def to_latex(self) -> str:
+        from kauri.rk_builder.rk_maker_format import format_tableau_latex
+
+        return format_tableau_latex(self)
+
 
 class RK:
     def __init__(self, tableau: ButcherTableau, name: str | None = None):
@@ -99,7 +105,7 @@ class RK:
         return f"RK method: {self.name} with tableau:\n{self.tableau}"
 
     def to_williamson(self) -> WilliamsonRK:
-        from kauri.methods.williamson import WilliamsonRK, WilliamsonRecursion
+        from kauri.methods.williamson import WilliamsonRecursion, WilliamsonRK
         from kauri.rk_builder.williamson import verify_williamson_relations
 
         if not self.explicit:
@@ -143,11 +149,11 @@ class RK:
             name=f"{method_name}_williamson2n",
         )
 
-
     def _inverse(self):
         b_inv = [-self.tableau.b[i] for i in range(self.stages)]
         a_inv = [
-            [self.tableau.a[i][j] - self.tableau.b[j] for j in range(self.stages)] for i in range(self.stages)
+            [self.tableau.a[i][j] - self.tableau.b[j] for j in range(self.stages)]
+            for i in range(self.stages)
         ]
         return RK(ButcherTableau(a=a_inv, b=b_inv))
 
@@ -163,14 +169,15 @@ class RK:
         b_adj = [self.tableau.b[self.stages - 1 - j] for j in range(self.stages)]
         a_adj = [
             [
-                self.tableau.b[self.stages - 1 - j] - self.tableau.a[self.stages - 1 - i][self.stages - j - 1]
+                self.tableau.b[self.stages - 1 - j]
+                - self.tableau.a[self.stages - 1 - i][self.stages - j - 1]
                 for j in range(self.stages)
             ]
             for i in range(self.stages)
         ]
         return RK(ButcherTableau(a=a_adj, b=b_adj))
 
-    def __mul__(self, other: "RK") -> "RK":
+    def __mul__(self, other: RK) -> RK:
         s1 = other.stages
         a1 = other.tableau.a
         b1 = other.tableau.b
@@ -181,7 +188,7 @@ class RK:
         a += [[b1[j] for j in range(s1)] + [a2[i][j] for j in range(s2)] for i in range(s2)]
         return RK(ButcherTableau(a=a, b=list(b1) + list(b2)))
 
-    def __pow__(self, exponent: int) -> "RK":
+    def __pow__(self, exponent: int) -> RK:
         if exponent == 0:
             return RK(ButcherTableau(a=[[0]], b=[0]))
         expn_ = exponent
@@ -204,7 +211,8 @@ class RK:
 
     def _internal_weights(self, i, t_rep) -> ExprLike:
         return sum(
-            (self.tableau.a[i][j] * self._derivative_weights(j, t_rep) for j in range(self.stages)), 0
+            (self.tableau.a[i][j] * self._derivative_weights(j, t_rep) for j in range(self.stages)),
+            0,
         )
 
     def _derivative_weights(self, i, t_rep) -> ExprLike:
