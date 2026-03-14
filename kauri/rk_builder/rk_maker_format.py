@@ -4,6 +4,7 @@ import sympy
 from kauri.methods.rk import ButcherTableau
 from kauri.methods.williamson import WilliamsonRecursion
 from kauri.rk_builder.rk_maker import SolveResult
+from kauri.rk_builder.williamson import williamson_tableau_expressions
 
 
 def _result_metadata(result: SolveResult) -> list[tuple[str, str]]:
@@ -169,5 +170,86 @@ def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> s
     lines += [r"\end{aligned}", r"\]"]
     return "\n".join(lines)
 
-def format_williamson_recursion_text(recursion: WilliamsonRecursion):
-    pass
+def _expanded_williamson_data(
+    recursion: WilliamsonRecursion,
+) -> tuple[list[sympy.Expr], list[sympy.Expr], list[sympy.Expr]]:
+    storage_a = [
+        sympy.simplify(recursion.A[i_idx][i_idx - 1] if i_idx > 0 else sympy.Integer(0))
+        for i_idx in range(recursion.stages)
+    ]
+    a_expr, _ = williamson_tableau_expressions(
+        stages=recursion.stages,
+        A_symbols=storage_a,
+        B_symbols=recursion.B,
+    )
+    stage_nodes = [
+        sympy.simplify(sum(a_expr[i_idx][j_idx] for j_idx in range(recursion.stages)))
+        for i_idx in range(recursion.stages)
+    ]
+    step_b = [sympy.simplify(value) for value in recursion.B]
+    return stage_nodes, storage_a, step_b
+
+
+def format_williamson_recursion_text(
+    recursion: WilliamsonRecursion, name: str | None = None
+) -> str:
+    stage_nodes, storage_a, step_b = _expanded_williamson_data(recursion)
+    lines: list[str] = ["=== Williamson 2N Method ==="]
+    if name is not None:
+        lines.append(f"name: {name}")
+    lines += [
+        f"stages: {recursion.stages}",
+        "",
+        "equations:",
+        "  Y_0 = Y_t",
+        "  ΔY_0 = 0",
+    ]
+    for stage_idx in range(recursion.stages):
+        stage_num = stage_idx + 1
+        lines.append(
+            "  "
+            f"K_{stage_num} = F(t + ({sympy.sstr(stage_nodes[stage_idx])})*h, "
+            f"Y_{stage_num - 1})"
+        )
+        lines.append(
+            "  "
+            f"ΔY_{stage_num} = ({sympy.sstr(storage_a[stage_idx])})"
+            f"*ΔY_{stage_num - 1} + h*K_{stage_num}"
+        )
+        lines.append(
+            "  "
+            f"Y_{stage_num} = Y_{stage_num - 1} + ({sympy.sstr(step_b[stage_idx])})"
+            f"*ΔY_{stage_num}"
+        )
+    lines.append(f"  Y_(t+h) = Y_{recursion.stages}")
+    return "\n".join(lines)
+
+
+def format_williamson_recursion_latex(
+    recursion: WilliamsonRecursion, name: str | None = None
+) -> str:
+    stage_nodes, storage_a, step_b = _expanded_williamson_data(recursion)
+    lines: list[str] = [r"\["]
+    if name is not None:
+        lines += [rf"\textbf{{Williamson 2N Method: }}\texttt{{{name}}}", r"\\"]
+    lines += [
+        r"\begin{aligned}",
+        r"Y_0 &= Y_t\\",
+        r"\Delta Y_0 &= 0\\",
+    ]
+    for stage_idx in range(recursion.stages):
+        stage_num = stage_idx + 1
+        lines.append(
+            rf"K_{{{stage_num}}} &= F\left(t + ({sympy.latex(stage_nodes[stage_idx])})h, "
+            rf"Y_{{{stage_num - 1}}}\right)\\"
+        )
+        lines.append(
+            rf"\Delta Y_{{{stage_num}}} &= ({sympy.latex(storage_a[stage_idx])})"
+            rf"\Delta Y_{{{stage_num - 1}}} + hK_{{{stage_num}}}\\"
+        )
+        lines.append(
+            rf"Y_{{{stage_num}}} &= Y_{{{stage_num - 1}}} + ({sympy.latex(step_b[stage_idx])})"
+            rf"\Delta Y_{{{stage_num}}}\\"
+        )
+    lines += [rf"Y_{{t+h}} &= Y_{{{recursion.stages}}}", r"\end{aligned}", r"\]"]
+    return "\n".join(lines)

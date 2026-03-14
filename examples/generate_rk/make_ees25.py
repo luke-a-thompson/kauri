@@ -18,7 +18,7 @@ def main():
     constraints = [
         SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
         SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
-        SetConstraint(sympy.Symbol("bhat2"), sympy.Rational(1, 2))
+        SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 2))
     ]
     
     methods, solve_result = build_explicit_rk(
@@ -33,6 +33,7 @@ def main():
     print(f"methods found: {len(methods)}")
     if len(methods) != 0:
         print(methods[0])
+        print(methods[0].to_williamson())
 
 
 if __name__ == "__main__":

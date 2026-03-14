@@ -3,13 +3,14 @@ import unittest
 import sympy
 from kauri import build_williamson_rk
 from kauri.methods.rk import RK
-from kauri.methods.williamson import WilliamsonRK
+from kauri.methods.williamson import WilliamsonRK, WilliamsonRecursion
 from kauri.rk_builder.rk_constraints import (
     EquationConstraint,
     SetConstraint,
     TieConstraint,
     compile_constraints,
 )
+from kauri.rk_builder.rk_maker_format import format_williamson_recursion_text
 from kauri.rk_builder.williamson import generate_2n_polynomial_constraints, is_2n_tableau
 
 
@@ -84,3 +85,42 @@ class RKBuilderTests(unittest.TestCase):
         self.assertAlmostEqual(1.0, method.tableau.a[2][1])
 
         self.assertTrue(is_2n_tableau(method.tableau.a, method.tableau.b))
+
+    def test_format_williamson_recursion_text_expands_stage_nodes(self):
+        recursion = WilliamsonRecursion(
+            A=[
+                [sympy.Integer(0), sympy.Integer(0), sympy.Integer(0)],
+                [sympy.Rational(1, 2), sympy.Integer(0), sympy.Integer(0)],
+                [sympy.Integer(0), sympy.Integer(1), sympy.Integer(0)],
+            ],
+            B=[
+                sympy.Rational(1, 4),
+                sympy.Rational(1, 2),
+                sympy.Rational(1, 4),
+            ],
+        )
+
+        self.assertEqual(
+            "\n".join(
+                [
+                    "=== Williamson 2N Method ===",
+                    "name: ees25_like",
+                    "stages: 3",
+                    "",
+                    "equations:",
+                    "  Y_0 = Y_t",
+                    "  ΔY_0 = 0",
+                    "  K_1 = F(t + (0)*h, Y_0)",
+                    "  ΔY_1 = (0)*ΔY_0 + h*K_1",
+                    "  Y_1 = Y_0 + (1/4)*ΔY_1",
+                    "  K_2 = F(t + (1/4)*h, Y_1)",
+                    "  ΔY_2 = (1/2)*ΔY_1 + h*K_2",
+                    "  Y_2 = Y_1 + (1/2)*ΔY_2",
+                    "  K_3 = F(t + (1)*h, Y_2)",
+                    "  ΔY_3 = (1)*ΔY_2 + h*K_3",
+                    "  Y_3 = Y_2 + (1/4)*ΔY_3",
+                    "  Y_(t+h) = Y_3",
+                ]
+            ),
+            format_williamson_recursion_text(recursion, name="ees25_like"),
+        )
