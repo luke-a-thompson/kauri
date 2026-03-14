@@ -80,10 +80,18 @@ def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> st
     c_cells = [cell(tableau.c[i]) for i in range(s)]
     a_cells = [[cell(tableau.a[i][j]) for j in range(s)] for i in range(s)]
     b_cells = [cell(tableau.b[j]) for j in range(s)]
+    b_hat_cells = [cell(tableau.b_hat[j]) for j in range(s)] if tableau.b_hat is not None else None
 
-    c_width = max(len(x) for x in c_cells + ["c"])
+    row_labels = ["c"]
+    if b_hat_cells is not None:
+        row_labels.append("b_hat")
+    c_width = max(len(x) for x in c_cells + row_labels)
     a_widths = [
-        max([len(a_cells[i][j]) for i in range(s)] + [len(b_cells[j]), 1]) for j in range(s)
+        max(
+            [len(a_cells[i][j]) for i in range(s)]
+            + [len(b_cells[j]), len(b_hat_cells[j]) if b_hat_cells is not None else 0, 1]
+        )
+        for j in range(s)
     ]
 
     def pad(x: str, w: int) -> str:
@@ -96,7 +104,11 @@ def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> st
     rows = [row(i) for i in range(s)]
     sep = "-" * (c_width + 3 + sum(a_widths) + max(0, s - 1))
     b_row = f"{' ' * c_width} | {' '.join(pad(b_cells[j], a_widths[j]) for j in range(s))}"
-    tableau_str = "\n".join([*rows, sep, b_row])
+    tableau_lines = [*rows, sep, b_row]
+    if b_hat_cells is not None:
+        b_hat_row = f"{pad('b_hat', c_width)} | {' '.join(pad(b_hat_cells[j], a_widths[j]) for j in range(s))}"
+        tableau_lines.append(b_hat_row)
+    tableau_str = "\n".join(tableau_lines)
 
     if not definitions:
         return tableau_str
@@ -126,8 +138,10 @@ def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> s
     array_lines += [
         r"\hline",
         " & ".join([""] + [cell(tableau.b[j]) for j in range(s)]) + r"\\",
-        r"\end{array}",
     ]
+    if tableau.b_hat is not None:
+        array_lines.append(r"\hat{b} & " + " & ".join(cell(tableau.b_hat[j]) for j in range(s)) + r"\\")
+    array_lines.append(r"\end{array}")
     tableau_latex = "\n".join(array_lines)
 
     if not definitions:
