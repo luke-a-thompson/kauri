@@ -15,8 +15,8 @@
 
 """Utilities for constructing Runge-Kutta methods from rooted-tree order conditions."""
 
-from collections.abc import Sequence
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import sympy
@@ -472,6 +472,14 @@ def build_explicit_rk(
         stages=stages,
     )
     if embedded:
+        if solve_result.solutions and all(
+            all(
+                sympy.simplify(sympy.expand(solution[f"b{i_idx}"] - solution[f"bhat{i_idx}"])) == 0
+                for i_idx in range(stages)
+            )
+            for solution in solve_result.solutions
+        ):
+            raise ValueError("embedded explicit RK constraints resolve to b = bhat.")
         solve_result = SolveResult(
             solutions=[
                 solution

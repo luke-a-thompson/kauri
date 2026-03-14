@@ -266,21 +266,19 @@ class RKTests(unittest.TestCase):
         )
 
     def test_rk_builder_embedded_rejects_degenerate_error_estimator(self):
-        methods, result = build_explicit_rk(
-            order=2,
-            stages=3,
-            antisymmetric_order=5,
-            constraints=[
-                SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
-                SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
-                SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 2)),
-            ],
-            embedded=True,
-            max_solutions=1,
-        )
-
-        self.assertEqual(0, len(methods))
-        self.assertEqual([], result.solutions)
+        with self.assertRaisesRegex(ValueError, "b = bhat"):
+            build_explicit_rk(
+                order=2,
+                stages=3,
+                antisymmetric_order=5,
+                constraints=[
+                    SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
+                    SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
+                    SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 2)),
+                ],
+                embedded=True,
+                max_solutions=1,
+            )
 
     def test_rk_builder_embedded_accepts_exact_lower_order_estimator(self):
         methods, _ = build_explicit_rk(
