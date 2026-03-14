@@ -2,11 +2,13 @@ from typing import TYPE_CHECKING
 
 import sympy
 
+from kauri.methods.rk import ButcherTableau
+
 if TYPE_CHECKING:
     from kauri.rk_builder.rk_maker import SolveResult
 
 
-def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:
+def _result_metadata(result: SolveResult) -> list[tuple[str, str]]:
     fixings_str = (
         ", ".join(f"{k}={sympy.sstr(v)}" for k, v in result.fixings.items())
         if result.fixings
@@ -21,9 +23,8 @@ def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:
     ]
 
 
-def result_to_text(result: "SolveResult") -> str:
-    lines: list[str] = []
-    lines.append("=== Explicit RK Maker Result ===")
+def result_to_text(result: SolveResult) -> str:
+    lines: list[str] = ["=== Explicit RK Maker Result ==="]
     for key, value in _result_metadata(result):
         lines.append(f"{key}: {value}")
     if len(result.free_symbols) > 0:
@@ -33,168 +34,106 @@ def result_to_text(result: "SolveResult") -> str:
             lines.append("relations among free symbols:")
             for relation in result.free_symbol_relations:
                 lines.append(f"  {sympy.sstr(relation)} = 0")
-
     if len(result.solutions) > 0:
-        lines.append("")
-        lines.append(
+        lines.extend([
+            "",
             "Use the builder return value `methods` for constructed methods."
-            " This object only stores solve metadata and symbolic solutions."
-        )
+            " This object only stores solve metadata and symbolic solutions.",
+        ])
     return "\n".join(lines)
 
 
-def result_to_latex(result: "SolveResult", standalone: bool = True) -> str:
+def result_to_latex(result: SolveResult, standalone: bool = True) -> str:
     lines: list[str] = []
     if standalone:
-        lines.append(r"\documentclass{article}")
-        lines.append(r"\usepackage{amsmath}")
-        lines.append(r"\begin{document}")
-
-    lines.append(r"\section*{Explicit RK Maker Result}")
-    lines.append(r"\begin{itemize}")
+        lines += [r"\documentclass{article}", r"\usepackage{amsmath}", r"\begin{document}"]
+    lines += [r"\section*{Explicit RK Maker Result}", r"\begin{itemize}"]
     for key, value in _result_metadata(result):
         lines.append(rf"\item {key}: \texttt{{{value}}}")
     lines.append(r"\end{itemize}")
-
     if len(result.solutions) > 0:
         lines.append(
             r"\textit{Use the builder return value methods for constructed methods."
             r" This object only stores solve metadata and symbolic solutions.}"
         )
-
     if standalone:
         lines.append(r"\end{document}")
     return "\n".join(lines)
 
 
-def format_tableau_text(
-    c_vector: list[sympy.core.basic.Basic],
-    a_matrix: list[list[sympy.core.basic.Basic]],
-    b_vector: list[sympy.core.basic.Basic],
-    max_cell_chars: int = 48,
-) -> str:
-    tableau_str, definitions = _format_text_tableau_structure(
-        c_vector=c_vector,
-        a_matrix=a_matrix,
-        b_vector=b_vector,
-        max_cell_chars=max_cell_chars,
-    )
-    if len(definitions) == 0:
+def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> str:
+    s = tableau.s
+    placeholder_by_key: dict[str, str] = {}
+    definitions: list[str] = []
+
+    def cell(expr: object) -> str:
+        raw = sympy.sstr(expr)
+        if len(raw) <= max_cell_chars:
+            return raw
+        if raw not in placeholder_by_key:
+            name = f"E{len(placeholder_by_key) + 1}"
+            placeholder_by_key[raw] = name
+            definitions.append(f"{name} = {raw}")
+        return placeholder_by_key[raw]
+
+    c_cells = [cell(tableau.c[i]) for i in range(s)]
+    a_cells = [[cell(tableau.a[i][j]) for j in range(s)] for i in range(s)]
+    b_cells = [cell(tableau.b[j]) for j in range(s)]
+
+    c_width = max(len(x) for x in c_cells + ["c"])
+    a_widths = [
+        max([len(a_cells[i][j]) for i in range(s)] + [len(b_cells[j]), 1])
+        for j in range(s)
+    ]
+
+    def pad(x: str, w: int) -> str:
+        return x + " " * (w - len(x))
+
+    def row(i: int) -> str:
+        a_str = " ".join(pad(a_cells[i][j], a_widths[j]) for j in range(s))
+        return f"{pad(c_cells[i], c_width)} | {a_str}"
+
+    rows = [row(i) for i in range(s)]
+    sep = "-" * (c_width + 3 + sum(a_widths) + max(0, s - 1))
+    b_row = f"{' ' * c_width} | {' '.join(pad(b_cells[j], a_widths[j]) for j in range(s))}"
+    tableau_str = "\n".join([*rows, sep, b_row])
+
+    if not definitions:
         return tableau_str
     return "\n".join([tableau_str, "", "definitions:", *[f"  {d}" for d in definitions]])
 
 
-def format_tableau_latex(
-    c_vector: list[sympy.core.basic.Basic],
-    a_matrix: list[list[sympy.core.basic.Basic]],
-    b_vector: list[sympy.core.basic.Basic],
-    max_cell_chars: int = 48,
-) -> str:
-    tableau_latex, definitions = _format_latex_tableau_structure(
-        c_vector=c_vector,
-        a_matrix=a_matrix,
-        b_vector=b_vector,
-        max_cell_chars=max_cell_chars,
-    )
-    if len(definitions) == 0:
-        return "\n".join([r"\[", tableau_latex, r"\]"])
-    lines: list[str] = [r"\[", tableau_latex, r"\]", r"\[", r"\begin{aligned}"]
-    for name, expr in definitions:
-        lines.append(rf"{name} &= {sympy.latex(expr)}\\")
-    lines.extend([r"\end{aligned}", r"\]"])
-    return "\n".join(lines)
+def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> str:
+    s = tableau.s
+    placeholder_by_key: dict[str, int] = {}
+    definitions: list[tuple[str, object]] = []
 
-
-def _format_text_tableau_from_strings(
-    c_cells: list[str],
-    a_cells: list[list[str]],
-    b_cells: list[str],
-) -> str:
-    stages = len(b_cells)
-    c_width = max(len(s) for s in c_cells + ["c"])
-    a_widths: list[int] = []
-    for j in range(stages):
-        col = [a_cells[i][j] for i in range(stages)] + [b_cells[j]]
-        a_widths.append(max(len(s) for s in col + ["a"]))
-
-    def pad(s: str, w: int) -> str:
-        return s + " " * (w - len(s))
-
-    lines: list[str] = []
-    for i in range(stages):
-        left = pad(c_cells[i], c_width)
-        right = " ".join(pad(a_cells[i][j], a_widths[j]) for j in range(stages))
-        lines.append(f"{left} | {right}")
-
-    sep_len = c_width + 3 + sum(a_widths) + max(0, stages - 1)
-    lines.append("-" * sep_len)
-    b_row = " ".join(pad(b_cells[j], a_widths[j]) for j in range(stages))
-    lines.append(f"{' ' * c_width} | {b_row}")
-    return "\n".join(lines)
-
-
-def _format_text_tableau_structure(
-    c_vector: list[sympy.core.basic.Basic],
-    a_matrix: list[list[sympy.core.basic.Basic]],
-    b_vector: list[sympy.core.basic.Basic],
-    max_cell_chars: int,
-) -> tuple[str, list[str]]:
-    def maybe_placeholder(raw: str, expr: sympy.core.basic.Basic) -> str:
-        if len(raw) <= max_cell_chars:
-            return raw
-        key = sympy.sstr(expr)
-        if key not in placeholder_by_key:
-            name = f"E{len(placeholder_by_key) + 1}"
-            placeholder_by_key[key] = name
-            definitions.append(f"{name} = {raw}")
-        return placeholder_by_key[key]
-
-    stages = len(b_vector)
-    placeholder_by_key: dict[str, str] = {}
-    definitions: list[str] = []
-
-    c_cells = [maybe_placeholder(sympy.sstr(c_vector[i]), c_vector[i]) for i in range(stages)]
-
-    a_cells: list[list[str]] = []
-    for i in range(stages):
-        row: list[str] = []
-        for j in range(stages):
-            raw = sympy.sstr(a_matrix[i][j])
-            row.append(maybe_placeholder(raw, a_matrix[i][j]))
-        a_cells.append(row)
-
-    b_cells = [maybe_placeholder(sympy.sstr(b_vector[j]), b_vector[j]) for j in range(stages)]
-    return _format_text_tableau_from_strings(c_cells, a_cells, b_cells), definitions
-
-
-def _format_latex_tableau_structure(
-    c_vector: list[sympy.core.basic.Basic],
-    a_matrix: list[list[sympy.core.basic.Basic]],
-    b_vector: list[sympy.core.basic.Basic],
-    max_cell_chars: int,
-) -> tuple[str, list[tuple[str, sympy.core.basic.Basic]]]:
-    def cell(expr: sympy.core.basic.Basic) -> str:
+    def cell(expr: object) -> str:
         raw = sympy.sstr(expr)
         if len(raw) <= max_cell_chars:
             return sympy.latex(expr)
-        key = raw
-        if key not in placeholder_by_key:
+        if raw not in placeholder_by_key:
             idx = len(placeholder_by_key) + 1
-            placeholder_by_key[key] = idx
+            placeholder_by_key[raw] = idx
             definitions.append((rf"E_{{{idx}}}", expr))
-        return rf"E_{{{placeholder_by_key[key]}}}"
+        return rf"E_{{{placeholder_by_key[raw]}}}"
 
-    stages = len(b_vector)
-    placeholder_by_key: dict[str, int] = {}
-    definitions: list[tuple[str, sympy.core.basic.Basic]] = []
+    cols = "c|" + "c" * s
+    array_lines = [rf"\begin{{array}}{{{cols}}}"]
+    for i in range(s):
+        row = [cell(tableau.c[i])] + [cell(tableau.a[i][j]) for j in range(s)]
+        array_lines.append(" & ".join(row) + r"\\")
+    array_lines += [
+        r"\hline",
+        " & ".join([""] + [cell(tableau.b[j]) for j in range(s)]) + r"\\",
+        r"\end{array}",
+    ]
+    tableau_latex = "\n".join(array_lines)
 
-    cols = "c|" + ("c" * stages)
-    lines: list[str] = [rf"\begin{{array}}{{{cols}}}"]
-    for i in range(stages):
-        row = [cell(c_vector[i])] + [cell(a_matrix[i][j]) for j in range(stages)]
-        lines.append(" & ".join(row) + r"\\")
-    lines.append(r"\hline")
-    brow = [""] + [cell(b_vector[j]) for j in range(stages)]
-    lines.append(" & ".join(brow) + r"\\")
-    lines.append(r"\end{array}")
-    return "\n".join(lines), definitions
+    if not definitions:
+        return "\n".join([r"\[", tableau_latex, r"\]"])
+    lines = [r"\[", tableau_latex, r"\]", r"\[", r"\begin{aligned}"]
+    for name, expr in definitions:
+        lines.append(rf"{name} &= {sympy.latex(expr)}\\")
+    lines += [r"\end{aligned}", r"\]"]
+    return "\n".join(lines)
