@@ -18,8 +18,8 @@ from kauri.rk_builder.williamson import (
 
 @dataclass(frozen=True)
 class WilliamsonRecursion:
-    A: list[list[sympy.core.basic.Basic]]
-    B: list[sympy.core.basic.Basic]
+    A: list[list[sympy.Expr]]
+    B: list[sympy.Expr]
 
     def __post_init__(self) -> None:
         stages = len(self.B)
@@ -121,54 +121,3 @@ class WilliamsonCF:
         return MKWMap(lambda tree: rk_weights(tree.to_nonplanar_tree()))
 
 
-def rk_to_williamson_2n(rk: RK) -> WilliamsonRK:
-    if not rk.explicit:
-        raise ValueError("Only explicit RK methods can be Williamson 2N in this converter.")
-    stages: int = rk.s
-    a: list[list[sympy.core.basic.Basic]] = [
-        [sympy.nsimplify(rk.tableau.a[i][j], rational=True) for j in range(stages)]
-        for i in range(stages)
-    ]
-    b: list[sympy.core.basic.Basic] = [
-        sympy.nsimplify(value, rational=True) for value in rk.tableau.b
-    ]
-    B: list[sympy.core.basic.Basic] = [sympy.simplify(a[idx + 1][idx]) for idx in range(stages - 1)]
-    B.append(sympy.simplify(b[-1]))
-
-    A_params: list[sympy.core.basic.Basic] = [sympy.Integer(0)]
-    for i_idx in range(1, stages):
-        denominator = sympy.simplify(b[i_idx])
-        if sympy.simplify(denominator) != 0:
-            A_params.append(
-                sympy.simplify(
-                    (_as_expr(b[i_idx - 1]) - _as_expr(B[i_idx - 1])) / _as_expr(denominator)
-                )
-            )
-            continue
-        b_i = sympy.simplify(B[i_idx])
-        if sympy.simplify(b_i) == 0:
-            raise ValueError("Cannot infer Williamson A_i when both b_i and B_i are zero.")
-        a_next_prev = sympy.simplify(
-            b[i_idx - 1] if i_idx == stages - 1 else a[i_idx + 1][i_idx - 1]
-        )
-        A_params.append(
-            sympy.simplify(
-                (
-                    _as_expr(a_next_prev)
-                    - sum((_as_expr(a[i_idx][j]) for j in range(stages)), _as_expr(0))
-                )
-                / _as_expr(b_i)
-            )
-        )
-
-    verify_williamson_relations(a=a, b=b, A_params=A_params, B=B)
-    recursion_a: list[list[sympy.core.basic.Basic]] = [
-        [sympy.Integer(0)] * stages for _ in range(stages)
-    ]
-    for i in range(1, stages):
-        recursion_a[i][i - 1] = A_params[i]
-    method_name: str = rk.name if rk.name is not None else "unnamed_rk"
-    return WilliamsonRK(
-        recursion=WilliamsonRecursion(A=recursion_a, B=B),
-        name=f"{method_name}_williamson2n",
-    )
