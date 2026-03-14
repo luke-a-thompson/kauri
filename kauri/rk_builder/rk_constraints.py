@@ -2,6 +2,7 @@
 Constraint helpers for RK maker equations.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import sympy
@@ -34,7 +35,7 @@ class CompiledConstraints:
     equations: list[sympy.core.basic.Basic]
 
 
-def compile_constraints(constraints: list[AnyConstraint]) -> CompiledConstraints:
+def compile_constraints(constraints: Sequence[AnyConstraint]) -> CompiledConstraints:
     """
     Compile constraints into substitutions and equations (expr == 0).
     """

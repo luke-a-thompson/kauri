@@ -15,6 +15,7 @@
 
 """Utilities for constructing Runge-Kutta methods from rooted-tree order conditions."""
 
+from collections.abc import Sequence
 import time
 from dataclasses import dataclass
 
@@ -346,7 +347,7 @@ def _prepare_build(
     order: int,
     stages: int,
     antisymmetric_order: int | None,
-    constraints: list[AnyConstraint] | None,
+    constraints: Sequence[AnyConstraint] | None,
 ) -> tuple[list[sympy.core.basic.Basic], list[Tree], CompiledConstraints]:
     if order <= 0:
         raise ValueError("order must be positive")
@@ -433,7 +434,7 @@ def build_explicit_rk(
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
-    constraints: list[AnyConstraint] | None = None,
+    constraints: Sequence[AnyConstraint] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
     embedded: bool = False,
@@ -500,7 +501,7 @@ def build_williamson_rk(
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
-    constraints: list[AnyConstraint] | None = None,
+    constraints: Sequence[AnyConstraint] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
 ) -> tuple[list[WilliamsonRK], SolveResult]:
