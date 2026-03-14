@@ -63,7 +63,7 @@ sample_trees = [
 class RKTests(unittest.TestCase):
     def test_butcher_tableau_derived_properties(self):
         explicit = ButcherTableau([[0, 0], [sympy.Rational(1, 2), 0]], [0, 1])
-        self.assertEqual(2, explicit.s)
+        self.assertEqual(2, explicit.stages)
         self.assertEqual([0, sympy.Rational(1, 2)], explicit.c)
         self.assertTrue(explicit.explicit)
         self.assertFalse(explicit.ssal)

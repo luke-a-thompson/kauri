@@ -29,36 +29,42 @@ class ButcherTableau:
             )
 
     @cached_property
-    def s(self) -> int:
+    def stages(self) -> int:
         return len(self.b)
 
     @cached_property
     def c(self) -> list[ExprLike]:
-        return [sum(self.a[i][j] for j in range(self.s)) for i in range(self.s)]
+        return [sum(self.a[i][j] for j in range(self.stages)) for i in range(self.stages)]
 
     @cached_property
     def explicit(self) -> bool:
-        for i in range(self.s):
-            for j in range(i, self.s):
+        for i in range(self.stages):
+            for j in range(i, self.stages):
                 if self.a[i][j]:
                     return False
         return True
 
     @cached_property
     def ssal(self) -> bool:
-        last_stage = self.s - 1
+        """ """
+        last_stage = self.stages - 1
         if self.a[last_stage][last_stage]:
             return False
-        for j in range(self.s):
+        for j in range(self.stages):
             if self.a[last_stage][j] != self.b[j]:
                 return False
         return True
 
     @cached_property
     def fsal(self) -> bool:
-        if any(self.a[0][j] for j in range(self.s)):
+        if any(self.a[0][j] for j in range(self.stages)):
             return False
         return self.ssal
+
+    def __str__(self) -> str:
+        from kauri.rk_builder.rk_maker_format import format_tableau_text
+
+        return format_tableau_text(self)
 
 
 class RK:
@@ -72,7 +78,7 @@ class RK:
 
     @cached_property
     def s(self) -> int:
-        return self.tableau.s
+        return self.tableau.stages
 
     @cached_property
     def explicit(self) -> bool:
@@ -130,7 +136,9 @@ class RK:
         return out
 
     def _internal_weights(self, i, t_rep) -> ExprLike:
-        return sum((self.tableau.a[i][j] * self._derivative_weights(j, t_rep) for j in range(self.s)), 0)
+        return sum(
+            (self.tableau.a[i][j] * self._derivative_weights(j, t_rep) for j in range(self.s)), 0
+        )
 
     def _derivative_weights(self, i, t_rep) -> ExprLike:
         if (i, repr(t_rep)) in self.deriv_dict:
@@ -144,7 +152,9 @@ class RK:
     def _elementary_weights(self, t_rep) -> ExprLike:
         if t_rep is None:
             return 1
-        return sum((self.tableau.b[i] * self._derivative_weights(i, t_rep) for i in range(self.s)), 0)
+        return sum(
+            (self.tableau.b[i] * self._derivative_weights(i, t_rep) for i in range(self.s)), 0
+        )
 
     def elementary_weights_map(self) -> Map:
         return Map(lambda x: self._elementary_weights(x.list_repr))

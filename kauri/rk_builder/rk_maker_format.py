@@ -4,8 +4,7 @@ import sympy
 
 from kauri.methods.rk import ButcherTableau
 
-if TYPE_CHECKING:
-    from kauri.rk_builder.rk_maker import SolveResult
+from kauri.rk_builder.rk_maker import SolveResult
 
 
 def _result_metadata(result: SolveResult) -> list[tuple[str, str]]:
@@ -35,11 +34,13 @@ def result_to_text(result: SolveResult) -> str:
             for relation in result.free_symbol_relations:
                 lines.append(f"  {sympy.sstr(relation)} = 0")
     if len(result.solutions) > 0:
-        lines.extend([
-            "",
-            "Use the builder return value `methods` for constructed methods."
-            " This object only stores solve metadata and symbolic solutions.",
-        ])
+        lines.extend(
+            [
+                "",
+                "Use the builder return value `methods` for constructed methods."
+                " This object only stores solve metadata and symbolic solutions.",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -62,7 +63,7 @@ def result_to_latex(result: SolveResult, standalone: bool = True) -> str:
 
 
 def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> str:
-    s = tableau.s
+    s = tableau.stages
     placeholder_by_key: dict[str, str] = {}
     definitions: list[str] = []
 
@@ -82,8 +83,7 @@ def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> st
 
     c_width = max(len(x) for x in c_cells + ["c"])
     a_widths = [
-        max([len(a_cells[i][j]) for i in range(s)] + [len(b_cells[j]), 1])
-        for j in range(s)
+        max([len(a_cells[i][j]) for i in range(s)] + [len(b_cells[j]), 1]) for j in range(s)
     ]
 
     def pad(x: str, w: int) -> str:
@@ -104,7 +104,7 @@ def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> st
 
 
 def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> str:
-    s = tableau.s
+    s = tableau.stages
     placeholder_by_key: dict[str, int] = {}
     definitions: list[tuple[str, object]] = []
 
