@@ -2,11 +2,36 @@
 Williamson/2N symbolic helpers for RK construction.
 """
 
-from dataclasses import dataclass
-
 import sympy
 
 from kauri.hopf_algebras.utils import _as_expr
+
+
+def verify_williamson_relations(
+    a: list[list[sympy.core.basic.Basic]],
+    b: list[sympy.core.basic.Basic],
+    A_params: list[sympy.core.basic.Basic],
+    B: list[sympy.core.basic.Basic],
+) -> None:
+    stages = len(b)
+    for i_idx in range(stages):
+        for j_idx in range(i_idx):
+            expected = (
+                B[j_idx]
+                if j_idx == i_idx - 1
+                else sympy.simplify(
+                    _as_expr(A_params[j_idx + 1]) * _as_expr(a[i_idx][j_idx + 1])
+                    + _as_expr(B[j_idx])
+                )
+            )
+            if sympy.simplify(_as_expr(a[i_idx][j_idx]) - _as_expr(expected)) != 0:
+                raise ValueError("RK tableau does not satisfy Williamson recursion for a_ij.")
+    for i_idx in range(stages - 1):
+        expected_b = sympy.simplify(
+            _as_expr(A_params[i_idx + 1]) * _as_expr(b[i_idx + 1]) + _as_expr(B[i_idx])
+        )
+        if sympy.simplify(_as_expr(b[i_idx]) - _as_expr(expected_b)) != 0:
+            raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")
 
 
 def williamson_unknown_symbols(stages: int) -> list[sympy.Symbol]:
@@ -87,46 +112,3 @@ def williamson_tableau_expressions(
     return a_expr, b_expr
 
 
-def verify_williamson_relations(
-    a: list[list[sympy.core.basic.Basic]],
-    b: list[sympy.core.basic.Basic],
-    A_params: list[sympy.core.basic.Basic],
-    B: list[sympy.core.basic.Basic],
-) -> None:
-    stages = len(b)
-    for i_idx in range(stages):
-        for j_idx in range(i_idx):
-            expected = (
-                B[j_idx]
-                if j_idx == i_idx - 1
-                else sympy.simplify(
-                    _as_expr(A_params[j_idx + 1]) * _as_expr(a[i_idx][j_idx + 1])
-                    + _as_expr(B[j_idx])
-                )
-            )
-            if sympy.simplify(_as_expr(a[i_idx][j_idx]) - _as_expr(expected)) != 0:
-                raise ValueError("RK tableau does not satisfy Williamson recursion for a_ij.")
-    for i_idx in range(stages - 1):
-        expected_b = sympy.simplify(
-            _as_expr(A_params[i_idx + 1]) * _as_expr(b[i_idx + 1]) + _as_expr(B[i_idx])
-        )
-        if sympy.simplify(_as_expr(b[i_idx]) - _as_expr(expected_b)) != 0:
-            raise ValueError("RK tableau does not satisfy Williamson recursion for b_i.")
-
-
-@dataclass(frozen=True)
-class WilliamsonValidation:
-    validate_2n_polynomials: bool = True
-
-    def post_validate(
-        self,
-        stages: int,
-        named_solution: dict[str, sympy.core.basic.Basic],
-    ) -> bool:
-        if not self.validate_2n_polynomials:
-            return True
-        subs = {sympy.symbols(k): sympy.sympify(v) for k, v in named_solution.items()}
-        return all(
-            sympy.simplify(sympy.expand(eq.subs(list(subs.items())))) == 0
-            for eq in generate_2n_polynomial_constraints(stages)
-        )

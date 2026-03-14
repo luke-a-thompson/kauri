@@ -16,7 +16,6 @@
 """Utilities for constructing Runge-Kutta methods from rooted-tree order conditions."""
 
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 
 import sympy
@@ -26,10 +25,8 @@ from kauri.hopf_algebras.maps import sign
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.methods.williamson import WilliamsonRK
 from kauri.rk_builder.rk import _rk_symbolic_weights_map, rk_order_cond
-from kauri.rk_builder.rk_constraints import Constraint, compile_constraints
+from kauri.rk_builder.rk_constraints import CompiledConstraints, Constraint, compile_constraints
 from kauri.rk_builder.williamson import (
-    WilliamsonValidation,
-    verify_williamson_relations,
     williamson_tableau_expressions,
     williamson_unknown_symbols,
 )
@@ -55,22 +52,15 @@ class SolveResult:
     def __str__(self) -> str:
         return self.format()
 
-    def format(
-        self,
-        max_cell_chars: int = 48,
-    ) -> str:
+    def format(self) -> str:
         from kauri.rk_builder.rk_maker_format import result_to_text
 
-        return result_to_text(self, max_cell_chars=max_cell_chars)
+        return result_to_text(self)
 
-    def to_latex(
-        self,
-        max_cell_chars: int = 48,
-        standalone: bool = True,
-    ) -> str:
+    def to_latex(self, standalone: bool = True) -> str:
         from kauri.rk_builder.rk_maker_format import result_to_latex
 
-        return result_to_latex(self, max_cell_chars=max_cell_chars, standalone=standalone)
+        return result_to_latex(self, standalone=standalone)
 
 
 @dataclass
@@ -131,20 +121,6 @@ def generate_explicit_antisymmetric_equations(
         ]
     return equations, trees
 
-
-def _construct_explicit_tableau(
-    stages: int,
-    symbol_values: dict[str, sympy.core.basic.Basic],
-) -> tuple[list[list[float]], list[float]]:
-    a_matrix: list[list[float]] = [[0.0 for _ in range(stages)] for _ in range(stages)]
-    b_vector: list[float] = [0.0 for _ in range(stages)]
-    for i_idx in range(stages):
-        for j_idx in range(i_idx):
-            a_matrix[i_idx][j_idx] = float(
-                sympy.N(symbol_values.get(f"a{i_idx}{j_idx}", sympy.Integer(0)), 20)
-            )
-        b_vector[i_idx] = float(sympy.N(symbol_values.get(f"b{i_idx}", sympy.Integer(0)), 20))
-    return a_matrix, b_vector
 
 
 def _merge_substitution_maps(
@@ -251,18 +227,6 @@ def _verify_solution(
     return True
 
 
-def _validate_named_solutions(
-    full_solutions: list[dict[sympy.Symbol, sympy.core.basic.Basic]],
-    stages: int,
-    post_validate: Callable[[int, dict[str, sympy.core.basic.Basic]], bool] | None,
-) -> list[dict[str, sympy.core.basic.Basic]]:
-    named_solutions: list[dict[str, sympy.core.basic.Basic]] = []
-    for solution in full_solutions:
-        named = {str(symbol): value for symbol, value in solution.items()}
-        if post_validate is None or post_validate(stages, named):
-            named_solutions.append(named)
-    return named_solutions
-
 
 def _run_symbolic_builder(
     *,
@@ -273,7 +237,6 @@ def _run_symbolic_builder(
     fixings: dict[sympy.Symbol, sympy.core.basic.Basic],
     max_solutions: int | None,
     verify_symbolic: bool,
-    post_validate: Callable[[int, dict[str, sympy.core.basic.Basic]], bool] | None,
     parameterization: str,
     stages: int,
 ) -> SolveResult:
@@ -324,11 +287,10 @@ def _run_symbolic_builder(
             continue
         full_solutions.append(merged)
 
-    named_solutions = _validate_named_solutions(
-        full_solutions=full_solutions,
-        stages=stages,
-        post_validate=post_validate,
-    )
+    named_solutions = [
+        {str(symbol): value for symbol, value in solution.items()}
+        for solution in full_solutions
+    ]
 
     return SolveResult(
         solutions=named_solutions,
@@ -342,6 +304,29 @@ def _run_symbolic_builder(
     )
 
 
+def _prepare_build(
+    order: int,
+    stages: int,
+    antisymmetric_order: int | None,
+    constraints: list[Constraint] | None,
+) -> tuple[list[sympy.core.basic.Basic], list[Tree], CompiledConstraints]:
+    if order <= 0:
+        raise ValueError("order must be positive")
+    if stages <= 0:
+        raise ValueError("stages must be positive")
+    if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
+        raise ValueError("antisymmetric_order must be positive")
+    equations, trees = generate_explicit_order_equations(order=order, stages=stages, rationalise=True)
+    if antisymmetric_order is not None:
+        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
+            antisymmetric_order=antisymmetric_order, stages=stages, rationalise=True
+        )
+        equations = equations + antisymmetric_equations
+        trees = trees + antisymmetric_trees
+    compiled = compile_constraints(constraints if constraints is not None else [])
+    return equations + compiled.equations, trees, compiled
+
+
 def _build_explicit_methods(
     *,
     named_solutions: list[dict[str, sympy.core.basic.Basic]],
@@ -352,15 +337,14 @@ def _build_explicit_methods(
     for index, named_solution in enumerate(named_solutions):
         if not _solution_is_numeric(named_solution):
             continue
-        a_matrix, b_vector = _construct_explicit_tableau(
-            stages=stages,
-            symbol_values=named_solution,
-        )
+        a: list[list[float]] = [[0.0] * stages for _ in range(stages)]
+        b: list[float] = [0.0] * stages
+        for i in range(stages):
+            for j in range(i):
+                a[i][j] = float(sympy.N(named_solution.get(f"a{i}{j}", sympy.Integer(0)), 20))
+            b[i] = float(sympy.N(named_solution.get(f"b{i}", sympy.Integer(0)), 20))
         methods.append(
-            RK(
-                ButcherTableau(a=a_matrix, b=b_vector),
-                f"generated_explicit_rk_s{stages}_p{order}_{index}",
-            )
+            RK(ButcherTableau(a=a, b=b), f"generated_explicit_rk_s{stages}_p{order}_{index}")
         )
     return methods
 
@@ -384,17 +368,6 @@ def _build_williamson_methods(
             for i_idx in range(stages)
         ]
 
-        a_expr, b_expr = williamson_tableau_expressions(
-            stages=stages,
-            A_symbols=A_params,
-            B_symbols=B_params,
-        )
-        a_sym = [
-            [sympy.nsimplify(a_expr[i_idx][j_idx], rational=True) for j_idx in range(stages)]
-            for i_idx in range(stages)
-        ]
-        b_sym = [sympy.nsimplify(value, rational=True) for value in b_expr]
-        verify_williamson_relations(a=a_sym, b=b_sym, A_params=A_params, B=B_params)
         methods.append(
             WilliamsonRK(
                 stages=stages,
@@ -417,48 +390,21 @@ def build_explicit_rk(
     """
     Construct explicit RK methods of requested order and stage count.
     """
-    if order <= 0:
-        raise ValueError("order must be positive")
-    if stages <= 0:
-        raise ValueError("stages must be positive")
-    if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
-        raise ValueError("antisymmetric_order must be positive")
-
-    equations, trees = generate_explicit_order_equations(
-        order=order,
-        stages=stages,
-        rationalise=True,
-    )
-    if antisymmetric_order is not None:
-        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
-            antisymmetric_order=antisymmetric_order,
-            stages=stages,
-            rationalise=True,
-        )
-        equations = equations + antisymmetric_equations
-        trees = trees + antisymmetric_trees
-
-    compiled_constraints = compile_constraints(constraints if constraints is not None else [])
-    equations = equations + compiled_constraints.equations
+    equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
     a_symbols, b_symbols = explicit_unknown_symbols(stages=stages)
     solve_result = _run_symbolic_builder(
         equations=equations,
         trees=trees,
         all_symbols=a_symbols + b_symbols,
         substitution_maps=[],
-        fixings=compiled_constraints.substitutions,
+        fixings=compiled.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
-        post_validate=None,
         parameterization="explicit_tableau",
         stages=stages,
     )
     return (
-        _build_explicit_methods(
-            named_solutions=solve_result.solutions,
-            stages=stages,
-            order=order,
-        ),
+        _build_explicit_methods(named_solutions=solve_result.solutions, stages=stages, order=order),
         solve_result,
     )
 
@@ -470,35 +416,11 @@ def build_williamson_rk(
     constraints: list[Constraint] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
-    validate_2n_polynomials: bool = True,
 ) -> tuple[list[WilliamsonRK], SolveResult]:
     """
     Construct Williamson 2N explicit RK methods of requested order and stage count.
     """
-    if order <= 0:
-        raise ValueError("order must be positive")
-    if stages <= 0:
-        raise ValueError("stages must be positive")
-    if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
-        raise ValueError("antisymmetric_order must be positive")
-
-    equations, trees = generate_explicit_order_equations(
-        order=order,
-        stages=stages,
-        rationalise=True,
-    )
-    if antisymmetric_order is not None:
-        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
-            antisymmetric_order=antisymmetric_order,
-            stages=stages,
-            rationalise=True,
-        )
-        equations = equations + antisymmetric_equations
-        trees = trees + antisymmetric_trees
-
-    compiled_constraints = compile_constraints(constraints if constraints is not None else [])
-    equations = equations + compiled_constraints.equations
-    validator = WilliamsonValidation(validate_2n_polynomials=validate_2n_polynomials)
+    equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
     williamson_a_expr, williamson_b_expr = williamson_tableau_expressions(stages=stages)
     substitution_map: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
     for i_idx in range(stages):
@@ -512,10 +434,9 @@ def build_williamson_rk(
         trees=trees,
         all_symbols=williamson_unknown_symbols(stages=stages),
         substitution_maps=[substitution_map],
-        fixings=compiled_constraints.substitutions,
+        fixings=compiled.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
-        post_validate=validator.post_validate,
         parameterization="williamson_2n",
         stages=stages,
     )

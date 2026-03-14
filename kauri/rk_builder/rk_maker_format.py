@@ -21,10 +21,7 @@ def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:
     ]
 
 
-def result_to_text(
-    result: "SolveResult",
-    max_cell_chars: int = 48,
-) -> str:
+def result_to_text(result: "SolveResult") -> str:
     lines: list[str] = []
     lines.append("=== Explicit RK Maker Result ===")
     for key, value in _result_metadata(result):
@@ -46,11 +43,7 @@ def result_to_text(
     return "\n".join(lines)
 
 
-def result_to_latex(
-    result: "SolveResult",
-    max_cell_chars: int = 48,
-    standalone: bool = True,
-) -> str:
+def result_to_latex(result: "SolveResult", standalone: bool = True) -> str:
     lines: list[str] = []
     if standalone:
         lines.append(r"\documentclass{article}")
