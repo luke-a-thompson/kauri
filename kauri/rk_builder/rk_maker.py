@@ -25,7 +25,12 @@ from kauri.hopf_algebras.maps import sign
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.methods.williamson import WilliamsonRK
 from kauri.rk_builder.rk import _rk_symbolic_weights_map, rk_order_cond
-from kauri.rk_builder.rk_constraints import CompiledConstraints, Constraint, compile_constraints
+from kauri.rk_builder.rk_constraints import (
+    AnyConstraint,
+    CompiledConstraints,
+    SetConstraint,
+    compile_constraints,
+)
 from kauri.rk_builder.williamson import (
     williamson_tableau_expressions,
     williamson_unknown_symbols,
@@ -308,7 +313,7 @@ def _prepare_build(
     order: int,
     stages: int,
     antisymmetric_order: int | None,
-    constraints: list[Constraint] | None,
+    constraints: list[AnyConstraint] | None,
 ) -> tuple[list[sympy.core.basic.Basic], list[Tree], CompiledConstraints]:
     if order <= 0:
         raise ValueError("order must be positive")
@@ -383,7 +388,7 @@ def build_explicit_rk(
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
-    constraints: list[Constraint] | None = None,
+    constraints: list[AnyConstraint] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
 ) -> tuple[list[RK], SolveResult]:
@@ -413,7 +418,7 @@ def build_williamson_rk(
     order: int,
     stages: int,
     antisymmetric_order: int | None = None,
-    constraints: list[Constraint] | None = None,
+    constraints: list[AnyConstraint] | None = None,
     max_solutions: int | None = 1,
     verify_symbolic: bool = True,
 ) -> tuple[list[WilliamsonRK], SolveResult]:
@@ -455,7 +460,7 @@ if __name__ == "__main__":
         order=2,
         stages=3,
         antisymmetric_order=5,
-        constraints=[Constraint.set("b0", sympy.Rational(1, 4))],
+        constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4))],
         max_solutions=1,
     )
 

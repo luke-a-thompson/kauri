@@ -17,8 +17,8 @@ import unittest
 
 import kauri.hopf_algebras.bck as bck
 import sympy
+from kauri.rk_builder.rk_constraints import SetConstraint
 from kauri import (
-    Constraint,
     EES25,
     EES27,
     SolveResult,
@@ -187,7 +187,7 @@ class RKTests(unittest.TestCase):
         methods, _ = build_explicit_rk(
             order=2,
             stages=2,
-            constraints=[Constraint.zero("b0")],
+            constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Integer(0))],
             max_solutions=1,
         )
 

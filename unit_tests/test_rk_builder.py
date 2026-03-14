@@ -4,7 +4,12 @@ import sympy
 from kauri import build_williamson_rk
 from kauri.methods.rk import RK
 from kauri.methods.williamson import WilliamsonRK
-from kauri.rk_builder.rk_constraints import Constraint, compile_constraints
+from kauri.rk_builder.rk_constraints import (
+    EquationConstraint,
+    SetConstraint,
+    TieConstraint,
+    compile_constraints,
+)
 from kauri.rk_builder.williamson import generate_2n_polynomial_constraints, is_2n_tableau
 
 
@@ -12,9 +17,9 @@ class RKBuilderTests(unittest.TestCase):
     def test_constraints_compile_tie_and_set(self):
         compiled = compile_constraints(
             [
-                Constraint.tie("a21", "a10"),
-                Constraint.set("a10", sympy.Rational(1, 2)),
-                Constraint.equation("b0 + b1 + b2", 1),
+                TieConstraint(sympy.Symbol("a21"), sympy.Symbol("a10")),
+                SetConstraint(sympy.Symbol("a10"), sympy.Rational(1, 2)),
+                EquationConstraint(sympy.sympify("b0 + b1 + b2"), sympy.Integer(1)),
             ]
         )
         self.assertEqual(sympy.Rational(1, 2), compiled.substitutions[sympy.symbols("a10")])
@@ -44,11 +49,11 @@ class RKBuilderTests(unittest.TestCase):
             order=1,
             stages=3,
             constraints=[
-                Constraint.zero("A1"),
-                Constraint.zero("A2"),
-                Constraint.zero("B0"),
-                Constraint.zero("B1"),
-                Constraint.one("B2"),
+                SetConstraint(sympy.Symbol("A1"), sympy.Integer(0)),
+                SetConstraint(sympy.Symbol("A2"), sympy.Integer(0)),
+                SetConstraint(sympy.Symbol("B0"), sympy.Integer(0)),
+                SetConstraint(sympy.Symbol("B1"), sympy.Integer(0)),
+                SetConstraint(sympy.Symbol("B2"), sympy.Integer(1)),
             ],
             max_solutions=1,
         )
@@ -61,7 +66,7 @@ class RKBuilderTests(unittest.TestCase):
             order=2,
             stages=3,
             antisymmetric_order=5,
-            constraints=[Constraint.set("b0", sympy.Rational(1, 4))],
+            constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4))],
             max_solutions=1,
         )
         self.assertEqual(1, len(methods))

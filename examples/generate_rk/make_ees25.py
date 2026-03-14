@@ -10,7 +10,7 @@ Run with:
 """
 
 import sympy
-from kauri import Constraint
+from kauri.rk_builder.rk_constraints import SetConstraint
 from kauri.rk_builder.rk_maker import build_williamson_rk
 
 
@@ -19,7 +19,7 @@ def main() -> int:
         order=2,
         stages=3,
         antisymmetric_order=5,
-        constraints=[Constraint.set("b0", sympy.Rational(1, 4))],
+        constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4))],
         max_solutions=1,
     )
     print(solve_result)
