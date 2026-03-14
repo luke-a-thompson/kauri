@@ -45,7 +45,8 @@ from kauri import (
     trees_up_to_order,
 )
 from kauri import Tree as T
-from kauri.methods.rk import ButcherTableau
+from kauri.methods.rk import ButcherTableau, RK
+from kauri.rk_builder.rk_maker_format import format_tableau_latex, format_tableau_text
 
 sample_trees = [
     T(None),
@@ -96,11 +97,20 @@ class RKTests(unittest.TestCase):
         self.assertTrue(non_fsal.ssal)
         self.assertFalse(non_fsal.fsal)
 
+        embedded = ButcherTableau(
+            [[0, 0], [sympy.Rational(1, 2), 0]],
+            [0, 1],
+            [1, 0],
+        )
+        self.assertTrue(embedded.embedded)
+
     def test_butcher_tableau_rejects_invalid_shape(self):
         with self.assertRaises(ValueError):
             ButcherTableau([], [])
         with self.assertRaises(ValueError):
             ButcherTableau([[0, 0]], [1])
+        with self.assertRaises(ValueError):
+            ButcherTableau([[0, 0], [1, 0]], [0, 1], [1])
 
     def test_elementary_weights(self):
         # Test using an RK method of order 4
@@ -140,6 +150,14 @@ class RKTests(unittest.TestCase):
     def test_order_cond(self):
         t = Tree([[], []])
         self.assertEqual("a10**2*b1 + b2*(a20 + a21)**2 - 1/3", str(rk_order_cond(t, 3, True)))
+
+    def test_symbolic_weight_with_custom_weight_symbols(self):
+        t = Tree([[], []])
+        weight_symbols = [sympy.Symbol(f"bhat{i}") for i in range(3)]
+        self.assertEqual(
+            "a10**2*bhat1 + bhat2*(a20 + a21)**2",
+            str(rk_symbolic_weight(t, 3, True, weight_symbols=weight_symbols)),
+        )
 
     def test_inverse(self):
         method = rk4
@@ -206,3 +224,43 @@ class RKTests(unittest.TestCase):
             max_solutions=1,
         )
         self.assertEqual(0, len(methods))
+
+    def test_rk_builder_embedded_requires_order_at_least_two(self):
+        with self.assertRaises(ValueError):
+            build_explicit_rk(order=1, stages=1, embedded=True)
+
+    def test_rk_builder_embedded_method(self):
+        methods, _ = build_explicit_rk(
+            order=2,
+            stages=2,
+            constraints=[
+                SetConstraint(sympy.Symbol("b0"), sympy.Integer(0)),
+                SetConstraint(sympy.Symbol("bhat0"), sympy.Integer(1)),
+            ],
+            embedded=True,
+            max_solutions=1,
+        )
+
+        self.assertEqual(1, len(methods))
+        method = methods[0]
+        self.assertEqual(2, method.order())
+        self.assertEqual([1.0, 0.0], method.tableau.b_hat)
+
+        embedded_method = RK(ButcherTableau(a=method.tableau.a, b=method.tableau.b_hat))
+        self.assertEqual(1, embedded_method.order())
+
+    def test_tableau_formatting_with_embedded_row(self):
+        embedded = ButcherTableau(
+            [[0, 0], [sympy.Rational(1, 2), 0]],
+            [0, 1],
+            [1, 0],
+        )
+        plain = ButcherTableau([[0, 0], [sympy.Rational(1, 2), 0]], [0, 1])
+
+        text = format_tableau_text(embedded)
+        latex = format_tableau_latex(embedded)
+
+        self.assertIn("b_hat", text)
+        self.assertIn(r"\hat{b}", latex)
+        self.assertNotIn("b_hat", format_tableau_text(plain))
+        self.assertNotIn(r"\hat{b}", format_tableau_latex(plain))
