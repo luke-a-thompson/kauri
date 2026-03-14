@@ -11,22 +11,20 @@ Run with:
 
 import sympy
 from kauri.rk_builder.rk_constraints import SetConstraint
-from kauri.rk_builder.rk_maker import build_explicit_rk
+from kauri.rk_builder.rk_maker import build_williamson_rk
 
 
 def main():
     constraints = [
         SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
-        SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
-        SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 4))
     ]
     
-    methods, solve_result = build_explicit_rk(
+    methods, solve_result = build_williamson_rk(
         order=2,
         stages=3,
         antisymmetric_order=5,
         constraints=constraints,
-        embedded=True,
+        embedded=False,
     )
     print(solve_result)
     print(f"methods found: {len(methods)}")

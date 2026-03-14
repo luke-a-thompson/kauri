@@ -32,17 +32,23 @@ class WilliamsonRecursion:
     @cached_property
     def stages(self) -> int:
         return len(self.B)
-        
+
     def __str__(self) -> str:
         from rk_builder.rk_maker_format import format_williamson_recursion_text
-        
+
         return format_williamson_recursion_text(self)
+
+    def to_latex(self) -> str:
+        from kauri.rk_builder.rk_maker_format import format_williamson_recursion_latex
+
+        return format_williamson_recursion_latex(self)
 
 
 @dataclass(frozen=True)
 class WilliamsonRK:
     recursion: WilliamsonRecursion
     name: str
+    embedded_from_penultimate: bool = False
 
     def __post_init__(self) -> None:
         if any(sympy.simplify(x) != 0 for x in self.recursion.A[0]):
@@ -71,13 +77,6 @@ class WilliamsonRK:
         return WilliamsonCF(
             base=self,
             name=f"{self.name}_cf",
-            stage_nodes=[sympy.simplify(value) for value in self.tableau.c],
-            storage_a=[
-                sympy.simplify(self.recursion.A[i][i - 1] if i > 0 else sympy.Integer(0))
-                for i in range(self.recursion.stages)
-            ],
-            exp_coeffs=[sympy.simplify(value) for value in self.recursion.B],
-            exponentials_per_update=self.recursion.stages,
         )
 
 
@@ -85,44 +84,52 @@ class WilliamsonRK:
 class WilliamsonCF:
     base: WilliamsonRK
     name: str
-    stage_nodes: list[sympy.core.basic.Basic]
-    storage_a: list[sympy.core.basic.Basic]
-    exp_coeffs: list[sympy.core.basic.Basic]
-    exponentials_per_update: int
+
+    @cached_property
+    def stage_nodes(self) -> list[sympy.Expr]:
+        return [sympy.simplify(value) for value in self.base.tableau.c]
+
+    @cached_property
+    def storage_a(self) -> list[sympy.Expr]:
+        return [
+            sympy.simplify(
+                self.base.recursion.A[i_idx][i_idx - 1] if i_idx > 0 else sympy.Integer(0)
+            )
+            for i_idx in range(self.base.stages)
+        ]
+
+    @cached_property
+    def exp_coeffs(self) -> list[sympy.Expr]:
+        return [sympy.simplify(value) for value in self.base.recursion.B]
+
+    @property
+    def exponentials_per_update(self) -> int:
+        return self.base.stages
 
     def to_williamson_rk(self) -> WilliamsonRK:
         return self.base
 
     def to_text(self) -> str:
-        lines: list[str] = [
-            "=== Williamson Commutator-Free Method ===",
-            f"name: {self.name}",
-            f"stages: {self.base.stages}",
-            f"exponentials per timestep: {self.exponentials_per_update}",
-            "",
-            "equations:",
-            "  Y_0 = Y_t",
-            "  ΔY_0 = 0",
-        ]
-        for stage_idx in range(self.base.stages):
-            stage_num = stage_idx + 1
-            lines.append(
-                "  "
-                f"K_{stage_num} = F(t + ({sympy.sstr(self.stage_nodes[stage_idx])})*h, "
-                f"Y_{stage_num - 1})"
-            )
-            lines.append(
-                "  "
-                f"ΔY_{stage_num} = ({sympy.sstr(self.storage_a[stage_idx])})"
-                f"*ΔY_{stage_num - 1} + h*K_{stage_num}"
-            )
-            lines.append(
-                "  "
-                f"Y_{stage_num} = exp(({sympy.sstr(self.exp_coeffs[stage_idx])})"
-                f"*ΔY_{stage_num}) * Y_{stage_num - 1}"
-            )
-        lines.append(f"  Y_(t+h) = Y_{self.base.stages}")
-        return "\n".join(lines)
+        from kauri.rk_builder.rk_maker_format import format_williamson_recursion_text
+
+        return format_williamson_recursion_text(
+            self.base.recursion,
+            name=self.name,
+            title="=== Williamson Commutator-Free Method ===",
+            mode="exp",
+            exponentials_per_timestep=self.exponentials_per_update,
+        )
+
+    def to_latex(self) -> str:
+        from kauri.rk_builder.rk_maker_format import format_williamson_recursion_latex
+
+        return format_williamson_recursion_latex(
+            self.base.recursion,
+            name=self.name,
+            heading="Williamson Commutator-Free Method",
+            mode="exp",
+            exponentials_per_timestep=self.exponentials_per_update,
+        )
 
     def elementary_weights_map(self):
         from kauri.planar_trees.mkw_truncated import MKWMap

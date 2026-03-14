@@ -1,3 +1,4 @@
+from typing import Literal
 
 import sympy
 
@@ -5,6 +6,9 @@ from kauri.methods.rk import ButcherTableau
 from kauri.methods.williamson import WilliamsonRecursion
 from kauri.rk_builder.rk_maker import SolveResult
 from kauri.rk_builder.williamson import williamson_tableau_expressions
+
+
+WilliamsonRenderMode = Literal["add", "exp"]
 
 
 def _result_metadata(result: SolveResult) -> list[tuple[str, str]]:
@@ -170,6 +174,7 @@ def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> s
     lines += [r"\end{aligned}", r"\]"]
     return "\n".join(lines)
 
+
 def _expanded_williamson_data(
     recursion: WilliamsonRecursion,
 ) -> tuple[list[sympy.Expr], list[sympy.Expr], list[sympy.Expr]]:
@@ -191,19 +196,21 @@ def _expanded_williamson_data(
 
 
 def format_williamson_recursion_text(
-    recursion: WilliamsonRecursion, name: str | None = None
+    recursion: WilliamsonRecursion,
+    name: str | None = None,
+    *,
+    title: str = "=== Williamson 2N Method ===",
+    mode: WilliamsonRenderMode = "add",
+    exponentials_per_timestep: int | None = None,
 ) -> str:
     stage_nodes, storage_a, step_b = _expanded_williamson_data(recursion)
-    lines: list[str] = ["=== Williamson 2N Method ==="]
+    lines: list[str] = [title]
     if name is not None:
         lines.append(f"name: {name}")
-    lines += [
-        f"stages: {recursion.stages}",
-        "",
-        "equations:",
-        "  Y_0 = Y_t",
-        "  ΔY_0 = 0",
-    ]
+    lines.append(f"stages: {recursion.stages}")
+    if exponentials_per_timestep is not None:
+        lines.append(f"exponentials per timestep: {exponentials_per_timestep}")
+    lines += ["", "equations:", "  Y_0 = Y_t", "  ΔY_0 = 0"]
     for stage_idx in range(recursion.stages):
         stage_num = stage_idx + 1
         lines.append(
@@ -216,27 +223,33 @@ def format_williamson_recursion_text(
             f"ΔY_{stage_num} = ({sympy.sstr(storage_a[stage_idx])})"
             f"*ΔY_{stage_num - 1} + h*K_{stage_num}"
         )
-        lines.append(
-            "  "
-            f"Y_{stage_num} = Y_{stage_num - 1} + ({sympy.sstr(step_b[stage_idx])})"
-            f"*ΔY_{stage_num}"
+        coeff = sympy.sstr(step_b[stage_idx])
+        update_line = (
+            f"Y_{stage_num} = Y_{stage_num - 1} + ({coeff})*ΔY_{stage_num}"
+            if mode == "add"
+            else f"Y_{stage_num} = exp(({coeff})*ΔY_{stage_num}) * Y_{stage_num - 1}"
         )
+        lines.append("  " + update_line)
     lines.append(f"  Y_(t+h) = Y_{recursion.stages}")
     return "\n".join(lines)
 
 
 def format_williamson_recursion_latex(
-    recursion: WilliamsonRecursion, name: str | None = None
+    recursion: WilliamsonRecursion,
+    name: str | None = None,
+    *,
+    heading: str = "Williamson 2N Method",
+    mode: WilliamsonRenderMode = "add",
+    exponentials_per_timestep: int | None = None,
 ) -> str:
     stage_nodes, storage_a, step_b = _expanded_williamson_data(recursion)
     lines: list[str] = [r"\["]
     if name is not None:
-        lines += [rf"\textbf{{Williamson 2N Method: }}\texttt{{{name}}}", r"\\"]
-    lines += [
-        r"\begin{aligned}",
-        r"Y_0 &= Y_t\\",
-        r"\Delta Y_0 &= 0\\",
-    ]
+        lines += [rf"\textbf{{{heading}: }}\texttt{{{name}}}", r"\\"]
+    lines.append(r"\begin{aligned}")
+    if exponentials_per_timestep is not None:
+        lines.append(rf"\text{{exponentials per timestep: }}{exponentials_per_timestep}\\")
+    lines += [r"Y_0 &= Y_t\\", r"\Delta Y_0 &= 0\\"]
     for stage_idx in range(recursion.stages):
         stage_num = stage_idx + 1
         lines.append(
@@ -247,9 +260,13 @@ def format_williamson_recursion_latex(
             rf"\Delta Y_{{{stage_num}}} &= ({sympy.latex(storage_a[stage_idx])})"
             rf"\Delta Y_{{{stage_num - 1}}} + hK_{{{stage_num}}}\\"
         )
-        lines.append(
-            rf"Y_{{{stage_num}}} &= Y_{{{stage_num - 1}}} + ({sympy.latex(step_b[stage_idx])})"
-            rf"\Delta Y_{{{stage_num}}}\\"
+        coeff = sympy.latex(step_b[stage_idx])
+        update_line = (
+            rf"Y_{{{stage_num}}} &= Y_{{{stage_num - 1}}} + ({coeff})\Delta Y_{{{stage_num}}}\\"
+            if mode == "add"
+            else rf"Y_{{{stage_num}}} &= \exp\left(({coeff})\Delta Y_{{{stage_num}}}\right) "
+            rf"Y_{{{stage_num - 1}}}\\"
         )
+        lines.append(update_line)
     lines += [rf"Y_{{t+h}} &= Y_{{{recursion.stages}}}", r"\end{aligned}", r"\]"]
     return "\n".join(lines)

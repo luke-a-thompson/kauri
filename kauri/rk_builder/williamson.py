@@ -65,7 +65,7 @@ def is_2n_tableau(
     substitutions: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
     for i_idx in range(stages):
         substitutions[sympy.symbols(f"b{i_idx}")] = sympy.sympify(b_vector[i_idx])
-        for j_idx in range(stages):
+        for j_idx in range(i_idx):
             substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.sympify(a_matrix[i_idx][j_idx])
     return all(
         sympy.simplify(sympy.expand(eq.subs(list(substitutions.items())))) == 0

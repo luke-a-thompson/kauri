@@ -50,69 +50,37 @@ def _normalize_tree_like_input(
     return t
 
 
-def _finalize_symbolic_output(
+def _finalize(
     expression: sympy.core.basic.Basic,
     rationalise: bool,
     mathematica_code: bool,
 ) -> sympy.core.basic.Basic | str:
-    out: sympy.core.basic.Basic | str = expression
     if rationalise:
-        out = sympy.nsimplify(out, tolerance=1e-10, rational=True)
+        expression = sympy.nsimplify(expression, tolerance=1e-10, rational=True)
     if mathematica_code:
-        out = sympy.mathematica_code(out)
-    return out
+        return sympy.mathematica_code(expression)
+    return expression
 
 
-def _rk_symbolic_expression(
+def rk_symbolic_weight(
     t: Tree | Forest | ForestSum | int | float,
     s: int,
     explicit: bool = False,
     a_mask: list | None = None,
     b_mask: list | None = None,
-    subtract_exact: bool = False,
     mathematica_code: bool = False,
     rationalise: bool = True,
     weight_symbols: list[ExprLike] | None = None,
 ) -> sympy.core.basic.Basic | str:
-    normalized_t = _normalize_tree_like_input(t)
+    t = _normalize_tree_like_input(t)
     weights_map = _rk_symbolic_weights_map(
-        s=s,
-        explicit=explicit,
-        a_mask=a_mask,
-        b_mask=b_mask,
-        weight_symbols=weight_symbols,
+        s=s, explicit=explicit, a_mask=a_mask, b_mask=b_mask, weight_symbols=weight_symbols
     )
-    expression = sympy.sympify(
-        (weights_map - exact_weights)(normalized_t) if subtract_exact else weights_map(normalized_t)
-    )
-    return _finalize_symbolic_output(expression, rationalise, mathematica_code)
-
-
-def rk_symbolic_weight(
-    t: Tree | Forest | ForestSum,
-    s: int,
-    explicit: bool = False,
-    a_mask: list | None = None,
-    b_mask: list | None = None,
-    mathematica_code: bool = False,
-    rationalise: bool = True,
-    weight_symbols: list[ExprLike] | None = None,
-) -> sympy.core.basic.Basic | str | tuple:
-    return _rk_symbolic_expression(
-        t=t,
-        s=s,
-        explicit=explicit,
-        a_mask=a_mask,
-        b_mask=b_mask,
-        subtract_exact=False,
-        mathematica_code=mathematica_code,
-        rationalise=rationalise,
-        weight_symbols=weight_symbols,
-    )
+    return _finalize(sympy.sympify(weights_map(t)), rationalise, mathematica_code)
 
 
 def rk_order_cond(
-    t: Tree | Forest | ForestSum,
+    t: Tree | Forest | ForestSum | int | float,
     s: int,
     explicit: bool = False,
     a_mask: list | None = None,
@@ -120,15 +88,9 @@ def rk_order_cond(
     mathematica_code: bool = False,
     rationalise: bool = True,
     weight_symbols: list[ExprLike] | None = None,
-) -> sympy.core.basic.Basic | str | tuple:
-    return _rk_symbolic_expression(
-        t=t,
-        s=s,
-        explicit=explicit,
-        a_mask=a_mask,
-        b_mask=b_mask,
-        subtract_exact=True,
-        mathematica_code=mathematica_code,
-        rationalise=rationalise,
-        weight_symbols=weight_symbols,
+) -> sympy.core.basic.Basic | str:
+    t = _normalize_tree_like_input(t)
+    weights_map = _rk_symbolic_weights_map(
+        s=s, explicit=explicit, a_mask=a_mask, b_mask=b_mask, weight_symbols=weight_symbols
     )
+    return _finalize(sympy.sympify((weights_map - exact_weights)(t)), rationalise, mathematica_code)

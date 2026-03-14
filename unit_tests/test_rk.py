@@ -193,7 +193,7 @@ class RKTests(unittest.TestCase):
         self.assertEqual(7, rk.antisymmetric_order())
 
     def test_rk_builder_type_and_order_one(self):
-        methods, result = build_explicit_rk(order=1, stages=1, max_solutions=1)
+        methods, result = build_explicit_rk(order=1, stages=1)
 
         self.assertIsInstance(result, SolveResult)
         self.assertEqual(1, len(methods))
@@ -206,7 +206,6 @@ class RKTests(unittest.TestCase):
             order=2,
             stages=2,
             constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Integer(0))],
-            max_solutions=1,
         )
 
         self.assertEqual(1, len(methods))
@@ -221,7 +220,6 @@ class RKTests(unittest.TestCase):
         methods, _ = build_explicit_rk(
             order=4,
             stages=2,
-            max_solutions=1,
         )
         self.assertEqual(0, len(methods))
 
@@ -238,7 +236,6 @@ class RKTests(unittest.TestCase):
                 SetConstraint(sympy.Symbol("bhat0"), sympy.Integer(1)),
             ],
             embedded=True,
-            max_solutions=1,
         )
 
         self.assertEqual(1, len(methods))
@@ -255,7 +252,6 @@ class RKTests(unittest.TestCase):
             stages=2,
             constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Integer(0))],
             embedded=True,
-            max_solutions=1,
         )
 
         self.assertEqual(0, len(methods))
@@ -277,7 +273,6 @@ class RKTests(unittest.TestCase):
                     SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 2)),
                 ],
                 embedded=True,
-                max_solutions=1,
             )
 
     def test_rk_builder_embedded_accepts_exact_lower_order_estimator(self):
@@ -291,7 +286,6 @@ class RKTests(unittest.TestCase):
                 SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 4)),
             ],
             embedded=True,
-            max_solutions=1,
         )
 
         self.assertEqual(1, len(methods))

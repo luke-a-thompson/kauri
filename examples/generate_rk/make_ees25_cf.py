@@ -21,7 +21,6 @@ def main() -> int:
         stages=3,
         antisymmetric_order=5,
         constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4))],
-        max_solutions=1,
     )
     print(solve_result)
 

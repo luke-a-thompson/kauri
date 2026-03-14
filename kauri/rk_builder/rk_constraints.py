@@ -61,19 +61,13 @@ def compile_constraints(constraints: Sequence[AnyConstraint]) -> CompiledConstra
         if isinstance(constraint, TieConstraint):
             union(constraint.lhs, constraint.rhs)
 
-    alias_substitutions: dict[sympy.Symbol, sympy.Basic] = {}
-    for constraint in constraints:
-        symbols = (
-            [constraint.symbol]
-            if isinstance(constraint, SetConstraint)
-            else [constraint.lhs, constraint.rhs]
-            if isinstance(constraint, TieConstraint)
-            else []
-        )
-        for symbol in symbols:
-            representative = find(symbol)
-            if representative != symbol:
-                alias_substitutions[symbol] = representative
+    alias_substitutions: dict[sympy.Symbol, sympy.Basic] = {
+        sym: find(sym)
+        for c in constraints
+        if isinstance(c, TieConstraint)
+        for sym in (c.lhs, c.rhs)
+        if find(sym) != sym
+    }
 
     set_substitutions: dict[sympy.Symbol, sympy.Basic] = {}
     for constraint in constraints:

@@ -2,7 +2,7 @@ import unittest
 
 import sympy
 from kauri import build_williamson_rk
-from kauri.methods.rk import RK
+from kauri.methods.rk import RK, ButcherTableau
 from kauri.methods.williamson import WilliamsonRK, WilliamsonRecursion
 from kauri.rk_builder.rk_constraints import (
     EquationConstraint,
@@ -10,8 +10,15 @@ from kauri.rk_builder.rk_constraints import (
     TieConstraint,
     compile_constraints,
 )
-from kauri.rk_builder.rk_maker_format import format_williamson_recursion_text
-from kauri.rk_builder.williamson import generate_2n_polynomial_constraints, is_2n_tableau
+from kauri.rk_builder.rk_maker_format import (
+    format_williamson_recursion_latex,
+    format_williamson_recursion_text,
+)
+from kauri.rk_builder.williamson import (
+    generate_2n_polynomial_constraints,
+    is_2n_tableau,
+    williamson_tableau_expressions,
+)
 
 
 class RKBuilderTests(unittest.TestCase):
@@ -56,11 +63,43 @@ class RKBuilderTests(unittest.TestCase):
                 SetConstraint(sympy.Symbol("B1"), sympy.Integer(0)),
                 SetConstraint(sympy.Symbol("B2"), sympy.Integer(1)),
             ],
-            max_solutions=1,
         )
         self.assertEqual("williamson_2n", solve_result.parameterization)
         self.assertGreaterEqual(len(methods), 1)
         self.assertTrue(all(isinstance(method, WilliamsonRK) for method in methods))
+        self.assertTrue(all(not method.embedded_from_penultimate for method in methods))
+
+    def test_build_williamson_rk_embedded_requires_order_at_least_two(self):
+        with self.assertRaises(ValueError):
+            build_williamson_rk(order=1, stages=2, embedded=True)
+
+    def test_build_williamson_rk_embedded_from_penultimate(self):
+        methods, solve_result = build_williamson_rk(
+            order=2,
+            stages=3,
+            constraints=[
+                SetConstraint(sympy.Symbol("A1"), sympy.Integer(0)),
+                SetConstraint(sympy.Symbol("A2"), -sympy.Integer(1)),
+                SetConstraint(sympy.Symbol("B0"), sympy.Rational(1, 2)),
+                SetConstraint(sympy.Symbol("B1"), sympy.Rational(1, 2)),
+                SetConstraint(sympy.Symbol("B2"), sympy.Rational(1, 2)),
+            ],
+            embedded=True,
+        )
+
+        self.assertEqual("williamson_2n_embedded", solve_result.parameterization)
+        self.assertEqual(1, len(methods))
+        method = methods[0]
+        self.assertTrue(method.embedded_from_penultimate)
+        self.assertEqual(2, RK(method.tableau, name=method.name).order())
+
+        truncated_a, truncated_b = williamson_tableau_expressions(
+            stages=2,
+            A_symbols=[sympy.Integer(0), method.recursion.A[1][0]],
+            B_symbols=method.recursion.B[:2],
+        )
+        embedded_method = RK(ButcherTableau(a=truncated_a, b=truncated_b))
+        self.assertEqual(1, embedded_method.order())
 
     def test_recover_ees25_via_williamson_builder(self):
         methods, _ = build_williamson_rk(
@@ -68,7 +107,6 @@ class RKBuilderTests(unittest.TestCase):
             stages=3,
             antisymmetric_order=5,
             constraints=[SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4))],
-            max_solutions=1,
         )
         self.assertEqual(1, len(methods))
         method = methods[0]
@@ -123,4 +161,44 @@ class RKBuilderTests(unittest.TestCase):
                 ]
             ),
             format_williamson_recursion_text(recursion, name="ees25_like"),
+        )
+
+    def test_format_williamson_recursion_latex_expands_stage_nodes(self):
+        recursion = WilliamsonRecursion(
+            A=[
+                [sympy.Integer(0), sympy.Integer(0), sympy.Integer(0)],
+                [sympy.Rational(1, 2), sympy.Integer(0), sympy.Integer(0)],
+                [sympy.Integer(0), sympy.Integer(1), sympy.Integer(0)],
+            ],
+            B=[
+                sympy.Rational(1, 4),
+                sympy.Rational(1, 2),
+                sympy.Rational(1, 4),
+            ],
+        )
+
+        self.assertEqual(
+            "\n".join(
+                [
+                    r"\[",
+                    r"\textbf{Williamson 2N Method: }\texttt{ees25_like}",
+                    r"\\",
+                    r"\begin{aligned}",
+                    r"Y_0 &= Y_t\\",
+                    r"\Delta Y_0 &= 0\\",
+                    r"K_{1} &= F\left(t + (0)h, Y_{0}\right)\\",
+                    r"\Delta Y_{1} &= (0)\Delta Y_{0} + hK_{1}\\",
+                    r"Y_{1} &= Y_{0} + (\frac{1}{4})\Delta Y_{1}\\",
+                    r"K_{2} &= F\left(t + (\frac{1}{4})h, Y_{1}\right)\\",
+                    r"\Delta Y_{2} &= (\frac{1}{2})\Delta Y_{1} + hK_{2}\\",
+                    r"Y_{2} &= Y_{1} + (\frac{1}{2})\Delta Y_{2}\\",
+                    r"K_{3} &= F\left(t + (1)h, Y_{2}\right)\\",
+                    r"\Delta Y_{3} &= (1)\Delta Y_{2} + hK_{3}\\",
+                    r"Y_{3} &= Y_{2} + (\frac{1}{4})\Delta Y_{3}\\",
+                    r"Y_{t+h} &= Y_{3}",
+                    r"\end{aligned}",
+                    r"\]",
+                ]
+            ),
+            format_williamson_recursion_latex(recursion, name="ees25_like"),
         )
