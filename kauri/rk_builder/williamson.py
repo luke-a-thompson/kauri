@@ -8,10 +8,10 @@ from kauri.hopf_algebras.utils import _as_expr
 
 
 def verify_williamson_relations(
-    a: list[list[sympy.core.basic.Basic]],
-    b: list[sympy.core.basic.Basic],
-    A_params: list[sympy.core.basic.Basic],
-    B: list[sympy.core.basic.Basic],
+    a: list[list[sympy.Expr]],
+    b: list[sympy.Expr],
+    A_params: list[sympy.Expr],
+    B: list[sympy.Expr],
 ) -> None:
     stages = len(b)
     for i_idx in range(stages):
@@ -42,8 +42,8 @@ def williamson_unknown_symbols(stages: int) -> list[sympy.Symbol]:
     ]
 
 
-def generate_2n_polynomial_constraints(stages: int) -> list[sympy.core.basic.Basic]:
-    equations: list[sympy.core.basic.Basic] = []
+def generate_2n_polynomial_constraints(stages: int) -> list[sympy.Expr]:
+    equations: list[sympy.Expr] = []
     for i_idx in range(2, stages):
         for j_idx in range(1, i_idx):
             a_ij = sympy.symbols(f"a{i_idx}{j_idx}")
@@ -75,9 +75,9 @@ def is_2n_tableau(
 
 def williamson_tableau_expressions(
     stages: int,
-    A_symbols: list[sympy.Symbol] | list[sympy.core.basic.Basic] | None = None,
-    B_symbols: list[sympy.Symbol] | list[sympy.core.basic.Basic] | None = None,
-) -> tuple[list[list[sympy.core.basic.Basic]], list[sympy.core.basic.Basic]]:
+    A_symbols: list[sympy.Expr] | None = None,
+    B_symbols: list[sympy.Expr] | None = None,
+) -> tuple[list[list[sympy.Expr]], list[sympy.Expr]]:
     if stages <= 0:
         raise ValueError("stages must be positive")
     A_vals = (
@@ -89,7 +89,7 @@ def williamson_tableau_expressions(
     if len(A_vals) != stages or len(B_vals) != stages:
         raise ValueError("A_symbols and B_symbols must both have length equal to stages")
 
-    a_expr: list[list[sympy.core.basic.Basic]] = [
+    a_expr: list[list[sympy.Expr]] = [
         [sympy.Integer(0) for _ in range(stages)] for _ in range(stages)
     ]
     for i_idx in range(stages):
@@ -103,7 +103,7 @@ def williamson_tableau_expressions(
                 )
             )
 
-    b_expr: list[sympy.core.basic.Basic] = [sympy.Integer(0) for _ in range(stages)]
+    b_expr: list[sympy.Expr] = [sympy.Integer(0) for _ in range(stages)]
     b_expr[stages - 1] = sympy.simplify(B_vals[stages - 1])
     for i_idx in range(stages - 2, -1, -1):
         b_expr[i_idx] = sympy.simplify(
