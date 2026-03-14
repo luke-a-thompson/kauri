@@ -50,7 +50,6 @@ from kauri.planar_trees.planar_basis import (
     TensorOrderedSum,
 )
 from kauri.rk_builder.rk import rk_order_cond, rk_symbolic_weight
-from kauri.rk_builder.rk_constraints import Constraint
 from kauri.rk_builder.rk_maker import SolveResult, build_explicit_rk, build_williamson_rk
 from kauri.trees.gentrees import (
     planar_trees_of_order,
