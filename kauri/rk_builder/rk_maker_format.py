@@ -22,7 +22,7 @@ def _result_metadata(result: "SolveResult") -> list[tuple[str, str]]:
 
 
 def result_to_text(
-    result: "SolveResult",
+    result: SolveResult,
     max_cell_chars: int = 48,
 ) -> str:
     lines: list[str] = []

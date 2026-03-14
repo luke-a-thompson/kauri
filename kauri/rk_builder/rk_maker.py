@@ -26,7 +26,7 @@ from kauri.hopf_algebras.maps import sign
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.methods.williamson import WilliamsonRK
 from kauri.rk_builder.rk import _rk_symbolic_weights_map, rk_order_cond
-from kauri.rk_builder.rk_constraints import Constraint, compile_constraints
+from kauri.rk_builder.rk_constraints import CompiledConstraints, Constraint, compile_constraints
 from kauri.rk_builder.williamson import (
     WilliamsonValidation,
     verify_williamson_relations,
@@ -342,6 +342,29 @@ def _run_symbolic_builder(
     )
 
 
+def _prepare_build(
+    order: int,
+    stages: int,
+    antisymmetric_order: int | None,
+    constraints: list[Constraint] | None,
+) -> tuple[list[sympy.core.basic.Basic], list[Tree], CompiledConstraints]:
+    if order <= 0:
+        raise ValueError("order must be positive")
+    if stages <= 0:
+        raise ValueError("stages must be positive")
+    if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
+        raise ValueError("antisymmetric_order must be positive")
+    equations, trees = generate_explicit_order_equations(order=order, stages=stages, rationalise=True)
+    if antisymmetric_order is not None:
+        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
+            antisymmetric_order=antisymmetric_order, stages=stages, rationalise=True
+        )
+        equations = equations + antisymmetric_equations
+        trees = trees + antisymmetric_trees
+    compiled = compile_constraints(constraints if constraints is not None else [])
+    return equations + compiled.equations, trees, compiled
+
+
 def _build_explicit_methods(
     *,
     named_solutions: list[dict[str, sympy.core.basic.Basic]],
@@ -417,36 +440,14 @@ def build_explicit_rk(
     """
     Construct explicit RK methods of requested order and stage count.
     """
-    if order <= 0:
-        raise ValueError("order must be positive")
-    if stages <= 0:
-        raise ValueError("stages must be positive")
-    if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
-        raise ValueError("antisymmetric_order must be positive")
-
-    equations, trees = generate_explicit_order_equations(
-        order=order,
-        stages=stages,
-        rationalise=True,
-    )
-    if antisymmetric_order is not None:
-        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
-            antisymmetric_order=antisymmetric_order,
-            stages=stages,
-            rationalise=True,
-        )
-        equations = equations + antisymmetric_equations
-        trees = trees + antisymmetric_trees
-
-    compiled_constraints = compile_constraints(constraints if constraints is not None else [])
-    equations = equations + compiled_constraints.equations
+    equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
     a_symbols, b_symbols = explicit_unknown_symbols(stages=stages)
     solve_result = _run_symbolic_builder(
         equations=equations,
         trees=trees,
         all_symbols=a_symbols + b_symbols,
         substitution_maps=[],
-        fixings=compiled_constraints.substitutions,
+        fixings=compiled.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
         post_validate=None,
@@ -454,11 +455,7 @@ def build_explicit_rk(
         stages=stages,
     )
     return (
-        _build_explicit_methods(
-            named_solutions=solve_result.solutions,
-            stages=stages,
-            order=order,
-        ),
+        _build_explicit_methods(named_solutions=solve_result.solutions, stages=stages, order=order),
         solve_result,
     )
 
@@ -475,29 +472,7 @@ def build_williamson_rk(
     """
     Construct Williamson 2N explicit RK methods of requested order and stage count.
     """
-    if order <= 0:
-        raise ValueError("order must be positive")
-    if stages <= 0:
-        raise ValueError("stages must be positive")
-    if isinstance(antisymmetric_order, int) and antisymmetric_order <= 0:
-        raise ValueError("antisymmetric_order must be positive")
-
-    equations, trees = generate_explicit_order_equations(
-        order=order,
-        stages=stages,
-        rationalise=True,
-    )
-    if antisymmetric_order is not None:
-        antisymmetric_equations, antisymmetric_trees = generate_explicit_antisymmetric_equations(
-            antisymmetric_order=antisymmetric_order,
-            stages=stages,
-            rationalise=True,
-        )
-        equations = equations + antisymmetric_equations
-        trees = trees + antisymmetric_trees
-
-    compiled_constraints = compile_constraints(constraints if constraints is not None else [])
-    equations = equations + compiled_constraints.equations
+    equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
     validator = WilliamsonValidation(validate_2n_polynomials=validate_2n_polynomials)
     williamson_a_expr, williamson_b_expr = williamson_tableau_expressions(stages=stages)
     substitution_map: dict[sympy.Symbol, sympy.core.basic.Basic] = {}
@@ -512,7 +487,7 @@ def build_williamson_rk(
         trees=trees,
         all_symbols=williamson_unknown_symbols(stages=stages),
         substitution_maps=[substitution_map],
-        fixings=compiled_constraints.substitutions,
+        fixings=compiled.substitutions,
         max_solutions=max_solutions,
         verify_symbolic=verify_symbolic,
         post_validate=validator.post_validate,
