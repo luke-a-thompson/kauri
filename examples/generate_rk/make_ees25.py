@@ -7,32 +7,31 @@ fixed as a free parameter.
 
 Run with:
     uv run python examples/generate_rk/make_ees25.py
+    uv run python examples/generate_rk/make_ees25.py --max-stages 6
 """
 
 import sympy
+from kauri.rk_builder.explicit_rk_maker import build_explicit_rk
 from kauri.rk_builder.rk_constraints import SetConstraint
-from kauri.rk_builder.rk_maker import build_explicit_rk
+from kauri.rk_builder.rk_objectives import LeadingErrorObjective
 
 
 def main():
-    constraints = [
-        SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
-        SetConstraint(sympy.Symbol("bhat0"), sympy.Rational(1, 4)),
-        SetConstraint(sympy.Symbol("bhat1"), sympy.Rational(1, 4))
-    ]
-    
+    constraints = []
     methods, solve_result = build_explicit_rk(
-        order=2,
-        stages=3,
-        antisymmetric_order=5,
+        order=4,
+        stages=6,
+        antisymmetric_order=7,
         constraints=constraints,
         embedded=True,
+        objectives=[LeadingErrorObjective(order=4, antisymmetric_order=7)],
     )
     print(solve_result)
     print(f"methods found: {len(methods)}")
-    if len(methods) != 0:
+    if methods:
         print(methods[0])
+        # print(methods[0].to_williamson().recursion.to_latex())
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

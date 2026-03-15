@@ -5,8 +5,15 @@ from collections.abc import Sequence
 
 import sympy
 
+from kauri.methods.rk import RK
 from kauri.methods.williamson import WilliamsonRecursion, WilliamsonRK
 from kauri.rk_builder.rk_constraints import AnyConstraint
+from kauri.rk_builder.rk_objectives import (
+    ObjectiveTerm,
+    RKObjective,
+    RKOptimizationConfig,
+    select_best_named_solution,
+)
 from kauri.rk_builder._rk_maker_core import (
     SolveResult,
     _prepare_build,
@@ -35,25 +42,12 @@ def _williamson_substitution_map(
 def _williamson_embedded_equations(
     order: int, stages: int
 ) -> tuple[list[sympy.core.basic.Basic], list[Tree]]:
-    truncated_stages = stages - 1
-    truncated_a_expr, truncated_b_expr = williamson_tableau_expressions(
-        stages=truncated_stages,
-        A_symbols=[sympy.Integer(0)]
-        + [sympy.symbols(f"A{i_idx}") for i_idx in range(1, truncated_stages)],
-        B_symbols=[sympy.symbols(f"B{i_idx}") for i_idx in range(truncated_stages)],
-    )
-    substitutions = list(
-        _williamson_substitution_map(
-            stages=truncated_stages,
-            a_expr=truncated_a_expr,
-            b_expr=truncated_b_expr,
-        ).items()
-    )
-    equations, trees = generate_explicit_order_equations(
-        order=order,
-        stages=truncated_stages,
-        rationalise=True,
-    )
+    row = stages - 1
+    substitutions = [
+        (sympy.symbols(f"b{i_idx}"), sympy.symbols(f"a{row}{i_idx}") if i_idx < row else sympy.Integer(0))
+        for i_idx in range(stages)
+    ]
+    equations, trees = generate_explicit_order_equations(order=order, stages=stages, rationalise=True)
     equations = [sympy.simplify(sympy.expand(equation.subs(substitutions))) for equation in equations]
     return [equation for equation in equations if equation != 0], trees
 
@@ -99,6 +93,8 @@ def build_williamson_rk(
     constraints: Sequence[AnyConstraint] | None = None,
     verify_symbolic: bool = True,
     embedded: bool = False,
+    objectives: Sequence[RKObjective | ObjectiveTerm] | None = None,
+    optimization: RKOptimizationConfig | None = None,
 ) -> tuple[list[WilliamsonRK], SolveResult]:
     equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
     if embedded and order < 2:
@@ -150,6 +146,44 @@ def build_williamson_rk(
                     for equation in higher_order_embedded_equations
                 )
             ],
+        )
+    if objectives:
+        def objective_method_factory(
+            named_solution: dict[str, sympy.core.basic.Basic],
+        ) -> RK | None:
+            methods = _build_williamson_methods(
+                named_solutions=[named_solution],
+                stages=stages,
+                order=order,
+                embedded=embedded,
+            )
+            if not methods:
+                return None
+            method = methods[0]
+            return RK(tableau=method.tableau, name=method.name)
+
+        best_solution = select_best_named_solution(
+            named_solutions=solve_result.solutions,
+            free_symbol_names=solve_result.free_symbols,
+            free_symbol_relations=solve_result.free_symbol_relations,
+            objectives=objectives,
+            method_factory=objective_method_factory,
+            optimization=optimization,
+        )
+        if best_solution is None:
+            solve_result = dataclasses.replace(solve_result, solutions=[])
+            return [], solve_result
+        chosen_fixings = {
+            free_name: sympy.sympify(best_solution[free_name])
+            for free_name in solve_result.free_symbols
+            if free_name in best_solution and not sympy.sympify(best_solution[free_name]).free_symbols
+        }
+        solve_result = dataclasses.replace(
+            solve_result,
+            solutions=[best_solution],
+            free_symbols=[],
+            free_symbol_relations=[],
+            fixings=solve_result.fixings | chosen_fixings,
         )
     return (
         _build_williamson_methods(

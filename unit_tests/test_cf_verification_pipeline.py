@@ -6,7 +6,7 @@ from kauri.methods.cf import verify_cf_ees
 from kauri.methods.rk_catalog import euler
 from kauri.methods.williamson import WilliamsonCF
 from kauri.planar_trees.planar_basis import PlanarTree
-from kauri.rk_builder.rk_maker import build_explicit_rk
+from kauri.rk_builder.explicit_rk_maker import build_explicit_rk
 from kauri.trees.gentrees import planar_trees_of_order
 
 

@@ -49,8 +49,10 @@ from kauri.planar_trees.planar_basis import (
     PlanarTree,
     TensorOrderedSum,
 )
+from kauri.rk_builder._rk_maker_core import SolveResult
+from kauri.rk_builder.explicit_rk_maker import build_explicit_rk
 from kauri.rk_builder.rk import rk_order_cond, rk_symbolic_weight
-from kauri.rk_builder.rk_maker import SolveResult, build_explicit_rk, build_williamson_rk
+from kauri.rk_builder.williamson_rk_maker import build_williamson_rk
 from kauri.trees.gentrees import (
     planar_trees_of_order,
     planar_trees_up_to_order,

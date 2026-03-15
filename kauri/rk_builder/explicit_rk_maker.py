@@ -7,6 +7,12 @@ import sympy
 
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.rk_builder.rk_constraints import AnyConstraint
+from kauri.rk_builder.rk_objectives import (
+    ObjectiveTerm,
+    RKObjective,
+    RKOptimizationConfig,
+    select_best_named_solution,
+)
 from kauri.rk_builder._rk_maker_core import (
     SolveResult,
     _has_exact_embedded_order,
@@ -55,6 +61,8 @@ def build_explicit_rk(
     constraints: Sequence[AnyConstraint] | None = None,
     verify_symbolic: bool = True,
     embedded: bool = False,
+    objectives: Sequence[RKObjective | ObjectiveTerm] | None = None,
+    optimization: RKOptimizationConfig | None = None,
 ) -> tuple[list[RK], SolveResult]:
     equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
     if embedded and order < 2:
@@ -99,6 +107,41 @@ def build_explicit_rk(
                 for solution in solve_result.solutions
                 if _has_exact_embedded_order(solution=solution, order=order, stages=stages)
             ],
+        )
+    if objectives:
+        def objective_method_factory(
+            named_solution: dict[str, sympy.core.basic.Basic],
+        ) -> RK | None:
+            methods = _build_explicit_methods(
+                named_solutions=[named_solution],
+                stages=stages,
+                order=order,
+                embedded=embedded,
+            )
+            return methods[0] if methods else None
+
+        best_solution = select_best_named_solution(
+            named_solutions=solve_result.solutions,
+            free_symbol_names=solve_result.free_symbols,
+            free_symbol_relations=solve_result.free_symbol_relations,
+            objectives=objectives,
+            method_factory=objective_method_factory,
+            optimization=optimization,
+        )
+        if best_solution is None:
+            solve_result = dataclasses.replace(solve_result, solutions=[])
+            return [], solve_result
+        chosen_fixings = {
+            free_name: sympy.sympify(best_solution[free_name])
+            for free_name in solve_result.free_symbols
+            if free_name in best_solution and not sympy.sympify(best_solution[free_name]).free_symbols
+        }
+        solve_result = dataclasses.replace(
+            solve_result,
+            solutions=[best_solution],
+            free_symbols=[],
+            free_symbol_relations=[],
+            fixings=solve_result.fixings | chosen_fixings,
         )
     return (
         _build_explicit_methods(

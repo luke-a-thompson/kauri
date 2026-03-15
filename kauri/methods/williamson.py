@@ -34,7 +34,7 @@ class WilliamsonRecursion:
         return len(self.B)
 
     def __str__(self) -> str:
-        from rk_builder.rk_maker_format import format_williamson_recursion_text
+        from kauri.rk_builder.rk_maker_format import format_williamson_recursion_text
 
         return format_williamson_recursion_text(self)
 

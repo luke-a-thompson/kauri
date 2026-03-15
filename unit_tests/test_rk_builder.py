@@ -14,11 +14,32 @@ from kauri.rk_builder.rk_maker_format import (
     format_williamson_recursion_latex,
     format_williamson_recursion_text,
 )
-from kauri.rk_builder.williamson import (
-    generate_2n_polynomial_constraints,
-    is_2n_tableau,
-    williamson_tableau_expressions,
-)
+from kauri.rk_builder.rk_objectives import RKObjective
+
+
+def is_2n_tableau(
+    a_matrix: list[list],
+    b_vector: list,
+) -> bool:
+    stages = len(b_vector)
+    substitutions: dict = {}
+    for i_idx in range(stages):
+        substitutions[sympy.symbols(f"b{i_idx}")] = sympy.sympify(b_vector[i_idx])
+        for j_idx in range(i_idx):
+            substitutions[sympy.symbols(f"a{i_idx}{j_idx}")] = sympy.sympify(a_matrix[i_idx][j_idx])
+    equations = []
+    for i_idx in range(2, stages):
+        for j_idx in range(1, i_idx):
+            a_ij = sympy.symbols(f"a{i_idx}{j_idx}")
+            a_i_jm1 = sympy.symbols(f"a{i_idx}{j_idx - 1}")
+            a_j_jm1 = sympy.symbols(f"a{j_idx}{j_idx - 1}")
+            b_jm1 = sympy.symbols(f"b{j_idx - 1}")
+            b_j = sympy.symbols(f"b{j_idx}")
+            equations.append(sympy.expand(a_ij * (b_jm1 - a_j_jm1) - (a_i_jm1 - a_j_jm1) * b_j))
+    return all(
+        sympy.simplify(sympy.expand(eq.subs(list(substitutions.items())))) == 0
+        for eq in equations
+    )
 
 
 class RKBuilderTests(unittest.TestCase):
@@ -35,22 +56,14 @@ class RKBuilderTests(unittest.TestCase):
         self.assertEqual(1, len(compiled.equations))
 
     def test_2n_constraints_hold_for_known_tableau(self):
-        equations = generate_2n_polynomial_constraints(stages=4)
-        substitutions = {
-            sympy.symbols("a10"): sympy.Rational(1, 2),
-            sympy.symbols("a20"): sympy.Rational(2, 9),
-            sympy.symbols("a21"): sympy.Rational(1, 3),
-            sympy.symbols("a30"): sympy.Rational(3, 176),
-            sympy.symbols("a31"): sympy.Rational(51, 88),
-            sympy.symbols("a32"): sympy.Rational(27, 176),
-            sympy.symbols("b0"): sympy.Rational(2, 9),
-            sympy.symbols("b1"): sympy.Rational(1, 3),
-            sympy.symbols("b2"): sympy.Integer(0),
-            sympy.symbols("b3"): sympy.Rational(4, 9),
-        }
-        for equation in equations:
-            residual = sympy.simplify(sympy.expand(equation.subs(substitutions)))
-            self.assertEqual(sympy.Integer(0), residual)
+        a = [
+            [0, 0, 0, 0],
+            [sympy.Rational(1, 2), 0, 0, 0],
+            [sympy.Rational(2, 9), sympy.Rational(1, 3), 0, 0],
+            [sympy.Rational(3, 176), sympy.Rational(51, 88), sympy.Rational(27, 176), 0],
+        ]
+        b = [sympy.Rational(2, 9), sympy.Rational(1, 3), sympy.Integer(0), sympy.Rational(4, 9)]
+        self.assertTrue(is_2n_tableau(a, b))
 
     def test_build_williamson_rk_smoke(self):
         methods, solve_result = build_williamson_rk(
@@ -68,6 +81,23 @@ class RKBuilderTests(unittest.TestCase):
         self.assertGreaterEqual(len(methods), 1)
         self.assertTrue(all(isinstance(method, WilliamsonRK) for method in methods))
         self.assertTrue(all(not method.embedded_from_penultimate for method in methods))
+
+    def test_build_williamson_rk_objective_concretizes_free_parameters(self):
+        class MinFirstWeightSquareObjective(RKObjective):
+            name = "min_b0_square"
+
+            def evaluate(self, method: RK) -> float:
+                return float(method.tableau.b[0] ** 2)
+
+        methods, solve_result = build_williamson_rk(
+            order=1,
+            stages=3,
+            objectives=[MinFirstWeightSquareObjective()],
+        )
+        self.assertEqual(1, len(methods))
+        self.assertEqual([], solve_result.free_symbols)
+        self.assertAlmostEqual(0.0, methods[0].tableau.b[0], places=12)
+        self.assertEqual(1, RK(methods[0].tableau, name=methods[0].name).order())
 
     def test_build_williamson_rk_embedded_requires_order_at_least_two(self):
         with self.assertRaises(ValueError):
@@ -93,12 +123,8 @@ class RKBuilderTests(unittest.TestCase):
         self.assertTrue(method.embedded_from_penultimate)
         self.assertEqual(2, RK(method.tableau, name=method.name).order())
 
-        truncated_a, truncated_b = williamson_tableau_expressions(
-            stages=2,
-            A_symbols=[sympy.Integer(0), method.recursion.A[1][0]],
-            B_symbols=method.recursion.B[:2],
-        )
-        embedded_method = RK(ButcherTableau(a=truncated_a, b=truncated_b))
+        b_hat = [method.tableau.a[method.stages - 1][i_idx] if i_idx < method.stages - 1 else 0 for i_idx in range(method.stages)]
+        embedded_method = RK(ButcherTableau(a=method.tableau.a, b=b_hat))
         self.assertEqual(1, embedded_method.order())
 
     def test_recover_ees25_via_williamson_builder(self):

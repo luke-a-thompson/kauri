@@ -4,7 +4,7 @@ import sympy
 
 from kauri.methods.rk import ButcherTableau
 from kauri.methods.williamson import WilliamsonRecursion
-from kauri.rk_builder.rk_maker import SolveResult
+from kauri.rk_builder._rk_maker_core import SolveResult
 from kauri.rk_builder.williamson import williamson_tableau_expressions
 
 

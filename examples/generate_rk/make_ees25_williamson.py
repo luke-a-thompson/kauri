@@ -11,14 +11,14 @@ Run with:
 
 import sympy
 from kauri.rk_builder.rk_constraints import SetConstraint
-from kauri.rk_builder.rk_maker import build_williamson_rk
+from kauri.rk_builder.williamson_rk_maker import build_williamson_rk
 
 
 def main():
     constraints = [
         SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
     ]
-    
+
     methods, solve_result = build_williamson_rk(
         order=2,
         stages=3,
@@ -29,7 +29,7 @@ def main():
     print(solve_result)
     print(f"methods found: {len(methods)}")
     if len(methods) != 0:
-        print(methods[0])
+        print(methods[0].recursion.to_latex())
 
 
 if __name__ == "__main__":

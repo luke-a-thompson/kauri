@@ -47,6 +47,7 @@ from kauri import Tree as T
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.rk_builder.rk_constraints import SetConstraint
 from kauri.rk_builder.rk_maker_format import format_tableau_latex, format_tableau_text
+from kauri.rk_builder.rk_objectives import RKObjective
 
 sample_trees = [
     T(None),
@@ -222,6 +223,24 @@ class RKTests(unittest.TestCase):
             stages=2,
         )
         self.assertEqual(0, len(methods))
+
+    def test_rk_builder_objective_concretizes_free_parameters(self):
+        class MinFirstWeightSquareObjective(RKObjective):
+            name = "min_b0_square"
+
+            def evaluate(self, method: RK) -> float:
+                return float(method.tableau.b[0] ** 2)
+
+        methods, result = build_explicit_rk(
+            order=2,
+            stages=2,
+            objectives=[MinFirstWeightSquareObjective()],
+        )
+        self.assertEqual(1, len(methods))
+        self.assertEqual([], result.free_symbols)
+        self.assertEqual(2, methods[0].order())
+        self.assertAlmostEqual(0.0, methods[0].tableau.b[0], places=12)
+        self.assertAlmostEqual(1.0, methods[0].tableau.b[1], places=12)
 
     def test_rk_builder_embedded_requires_order_at_least_two(self):
         with self.assertRaises(ValueError):
