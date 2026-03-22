@@ -12,19 +12,19 @@ Run with:
 
 import sympy
 from kauri.rk_builder.explicit_rk_maker import build_explicit_rk
-from kauri.rk_builder.rk_constraints import SetConstraint
+from kauri.rk_builder.rk_constraints import FSALConstraint, SetConstraint
 from kauri.rk_builder.rk_objectives import LeadingErrorObjective
 
 
 def main():
     constraints = []
     methods, solve_result = build_explicit_rk(
-        order=4,
-        stages=6,
-        antisymmetric_order=7,
+        order=2,
+        stages=3,
+        antisymmetric_order=5,
         constraints=constraints,
         embedded=True,
-        objectives=[LeadingErrorObjective(order=4, antisymmetric_order=7)],
+        objectives=[LeadingErrorObjective(order=2, antisymmetric_order=5)],
     )
     print(solve_result)
     print(f"methods found: {len(methods)}")

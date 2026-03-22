@@ -7,7 +7,6 @@ from kauri.methods.williamson import WilliamsonRecursion
 from kauri.rk_builder._rk_maker_core import SolveResult
 from kauri.rk_builder.williamson import williamson_tableau_expressions
 
-
 WilliamsonRenderMode = Literal["add", "exp"]
 
 
@@ -23,7 +22,20 @@ def _result_metadata(result: SolveResult) -> list[tuple[str, str]]:
         ("active unknowns", ", ".join(result.unknowns)),
         ("free symbols", ", ".join(result.free_symbols)),
         ("fixings", fixings_str),
+        ("objective-evaluated methods", str(len(result.objective_scores))),
     ]
+
+
+def _objective_scores_text(result: SolveResult) -> list[str]:
+    if len(result.objective_scores) == 0:
+        return []
+    lines = ["objective scores:"]
+    for method_score in result.objective_scores:
+        score_text = ", ".join(
+            f"{objective}={value:.12g}" for objective, value in method_score.scores.items()
+        )
+        lines.append(f"  {method_score.method_name}: {score_text}")
+    return lines
 
 
 def _family_summary_text(result: SolveResult) -> str | None:
@@ -31,8 +43,7 @@ def _family_summary_text(result: SolveResult) -> str | None:
         return None
     free_symbols = ", ".join(result.free_symbols)
     return (
-        "No concrete method found; the solver returned a family parameterised by "
-        f"[{free_symbols}]."
+        f"No concrete method found; the solver returned a family parameterised by [{free_symbols}]."
     )
 
 
@@ -58,6 +69,7 @@ def result_to_text(result: SolveResult) -> str:
                 " This object only stores solve metadata and symbolic solutions.",
             ]
         )
+    lines.extend(_objective_scores_text(result))
     return "\n".join(lines)
 
 
@@ -77,18 +89,34 @@ def result_to_latex(result: SolveResult, standalone: bool = True) -> str:
             r"\textit{Use the builder return value methods for constructed methods."
             r" This object only stores solve metadata and symbolic solutions.}"
         )
+    if len(result.objective_scores) > 0:
+        lines.append(r"\textbf{Objective scores:}")
+        lines.append(r"\begin{itemize}")
+        for method_score in result.objective_scores:
+            score_text = ", ".join(
+                rf"{objective}={value:.12g}" for objective, value in method_score.scores.items()
+            )
+            lines.append(rf"\item \texttt{{{method_score.method_name}}}: {score_text}")
+        lines.append(r"\end{itemize}")
     if standalone:
         lines.append(r"\end{document}")
     return "\n".join(lines)
 
 
-def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> str:
+def format_tableau_text(
+    tableau: ButcherTableau, max_cell_chars: int = 48, *, rationalize: bool = True
+) -> str:
     s = tableau.stages
     placeholder_by_key: dict[str, str] = {}
     definitions: list[str] = []
 
+    def to_expr(val: object) -> object:
+        if rationalize:
+            return sympy.nsimplify(val, tolerance=1e-3, rational=True)
+        return val
+
     def cell(expr: object) -> str:
-        raw = sympy.sstr(expr)
+        raw = sympy.sstr(to_expr(expr))
         if len(raw) <= max_cell_chars:
             return raw
         if raw not in placeholder_by_key:
@@ -135,19 +163,27 @@ def format_tableau_text(tableau: ButcherTableau, max_cell_chars: int = 48) -> st
     return "\n".join([tableau_str, "", "definitions:", *[f"  {d}" for d in definitions]])
 
 
-def format_tableau_latex(tableau: ButcherTableau, max_cell_chars: int = 48) -> str:
+def format_tableau_latex(
+    tableau: ButcherTableau, max_cell_chars: int = 48, *, rationalize: bool = False
+) -> str:
     s = tableau.stages
     placeholder_by_key: dict[str, int] = {}
     definitions: list[tuple[str, object]] = []
 
+    def to_expr(val: object) -> object:
+        if rationalize:
+            return sympy.nsimplify(val, tolerance=1e-3, rational=True)
+        return val
+
     def cell(expr: object) -> str:
-        raw = sympy.sstr(expr)
+        converted = to_expr(expr)
+        raw = sympy.sstr(converted)
         if len(raw) <= max_cell_chars:
-            return sympy.latex(expr)
+            return sympy.latex(converted)
         if raw not in placeholder_by_key:
             idx = len(placeholder_by_key) + 1
             placeholder_by_key[raw] = idx
-            definitions.append((rf"E_{{{idx}}}", expr))
+            definitions.append((rf"E_{{{idx}}}", converted))
         return rf"E_{{{placeholder_by_key[raw]}}}"
 
     cols = "c|" + "c" * s
@@ -214,9 +250,7 @@ def format_williamson_recursion_text(
     for stage_idx in range(recursion.stages):
         stage_num = stage_idx + 1
         lines.append(
-            "  "
-            f"K_{stage_num} = F(t + ({sympy.sstr(stage_nodes[stage_idx])})*h, "
-            f"Y_{stage_num - 1})"
+            f"  K_{stage_num} = F(t + ({sympy.sstr(stage_nodes[stage_idx])})*h, Y_{stage_num - 1})"
         )
         lines.append(
             "  "

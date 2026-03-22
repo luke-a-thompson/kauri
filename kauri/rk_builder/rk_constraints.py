@@ -26,7 +26,12 @@ class EquationConstraint:
     rhs: sympy.Basic
 
 
-AnyConstraint = SetConstraint | TieConstraint | EquationConstraint
+@dataclass(frozen=True)
+class FSALConstraint:
+    """Enforce explicit FSAL: last row equals b and last weight is zero."""
+
+
+AnyConstraint = SetConstraint | TieConstraint | EquationConstraint | FSALConstraint
 
 
 @dataclass(frozen=True)
@@ -35,10 +40,30 @@ class CompiledConstraints:
     equations: list[sympy.core.basic.Basic]
 
 
-def compile_constraints(constraints: Sequence[AnyConstraint]) -> CompiledConstraints:
+def compile_constraints(
+    constraints: Sequence[AnyConstraint], stages: int | None = None
+) -> CompiledConstraints:
     """
     Compile constraints into substitutions and equations (expr == 0).
     """
+    expanded_constraints: list[SetConstraint | TieConstraint | EquationConstraint] = []
+    for constraint in constraints:
+        if isinstance(constraint, FSALConstraint):
+            if stages is None:
+                raise ValueError("FSALConstraint requires stages to be provided.")
+            if stages <= 0:
+                raise ValueError("FSALConstraint requires positive stages.")
+            last_stage = stages - 1
+            expanded_constraints.extend(
+                TieConstraint(sympy.Symbol(f"a{last_stage}{j_idx}"), sympy.Symbol(f"b{j_idx}"))
+                for j_idx in range(last_stage)
+            )
+            expanded_constraints.append(
+                SetConstraint(sympy.Symbol(f"b{last_stage}"), sympy.Integer(0))
+            )
+            continue
+        expanded_constraints.append(constraint)
+
     parent: dict[sympy.Symbol, sympy.Symbol] = {}
 
     def find(symbol: sympy.Symbol) -> sympy.Symbol:
@@ -57,20 +82,20 @@ def compile_constraints(constraints: Sequence[AnyConstraint]) -> CompiledConstra
         else:
             parent[lhs_root] = rhs_root
 
-    for constraint in constraints:
+    for constraint in expanded_constraints:
         if isinstance(constraint, TieConstraint):
             union(constraint.lhs, constraint.rhs)
 
     alias_substitutions: dict[sympy.Symbol, sympy.Basic] = {
         sym: find(sym)
-        for c in constraints
+        for c in expanded_constraints
         if isinstance(c, TieConstraint)
         for sym in (c.lhs, c.rhs)
         if find(sym) != sym
     }
 
     set_substitutions: dict[sympy.Symbol, sympy.Basic] = {}
-    for constraint in constraints:
+    for constraint in expanded_constraints:
         if not isinstance(constraint, SetConstraint):
             continue
         representative = find(constraint.symbol)
@@ -86,7 +111,7 @@ def compile_constraints(constraints: Sequence[AnyConstraint]) -> CompiledConstra
     substitutions: dict[sympy.Symbol, sympy.Basic] = {**alias_substitutions, **set_substitutions}
 
     equations: list[sympy.Basic] = []
-    for constraint in constraints:
+    for constraint in expanded_constraints:
         if isinstance(constraint, EquationConstraint):
             expression = sympy.simplify(
                 sympy.expand((constraint.lhs - constraint.rhs).subs(substitutions.items()))

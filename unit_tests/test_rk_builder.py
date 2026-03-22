@@ -1,11 +1,12 @@
 import unittest
 
 import sympy
-from kauri import build_williamson_rk
+from kauri import build_explicit_rk, build_williamson_rk
 from kauri.methods.rk import RK, ButcherTableau
 from kauri.methods.williamson import WilliamsonRK, WilliamsonRecursion
 from kauri.rk_builder.rk_constraints import (
     EquationConstraint,
+    FSALConstraint,
     SetConstraint,
     TieConstraint,
     compile_constraints,
@@ -14,7 +15,7 @@ from kauri.rk_builder.rk_maker_format import (
     format_williamson_recursion_latex,
     format_williamson_recursion_text,
 )
-from kauri.rk_builder.rk_objectives import RKObjective
+from kauri.rk_builder.rk_objectives import LeadingErrorObjective, RKObjective
 
 
 def is_2n_tableau(
@@ -54,6 +55,32 @@ class RKBuilderTests(unittest.TestCase):
         self.assertEqual(sympy.Rational(1, 2), compiled.substitutions[sympy.symbols("a10")])
         self.assertEqual(sympy.symbols("a10"), compiled.substitutions[sympy.symbols("a21")])
         self.assertEqual(1, len(compiled.equations))
+
+    def test_constraints_compile_fsal_shortcut(self):
+        compiled = compile_constraints([FSALConstraint()], stages=3)
+        substitutions = list(compiled.substitutions.items())
+        self.assertEqual(
+            0,
+            sympy.simplify(
+                sympy.Symbol("a20").subs(substitutions) - sympy.Symbol("b0").subs(substitutions)
+            ),
+        )
+        self.assertEqual(
+            0,
+            sympy.simplify(
+                sympy.Symbol("a21").subs(substitutions) - sympy.Symbol("b1").subs(substitutions)
+            ),
+        )
+        self.assertEqual(sympy.Integer(0), compiled.substitutions[sympy.symbols("b2")])
+
+    def test_build_explicit_rk_fsal_constraint(self):
+        methods, _ = build_explicit_rk(
+            order=2,
+            stages=3,
+            constraints=[FSALConstraint(), SetConstraint(sympy.Symbol("b0"), sympy.Integer(0))],
+        )
+        self.assertEqual(1, len(methods))
+        self.assertTrue(methods[0].tableau.fsal)
 
     def test_2n_constraints_hold_for_known_tableau(self):
         a = [
@@ -98,6 +125,13 @@ class RKBuilderTests(unittest.TestCase):
         self.assertEqual([], solve_result.free_symbols)
         self.assertAlmostEqual(0.0, methods[0].tableau.b[0], places=12)
         self.assertEqual(1, RK(methods[0].tableau, name=methods[0].name).order())
+        self.assertEqual(1, len(solve_result.objective_scores))
+        self.assertIn("min_b0_square", solve_result.objective_scores[0].scores)
+        self.assertAlmostEqual(
+            0.0,
+            solve_result.objective_scores[0].scores["min_b0_square"],
+            places=12,
+        )
 
     def test_build_williamson_rk_embedded_requires_order_at_least_two(self):
         with self.assertRaises(ValueError):
@@ -126,6 +160,17 @@ class RKBuilderTests(unittest.TestCase):
         b_hat = [method.tableau.a[method.stages - 1][i_idx] if i_idx < method.stages - 1 else 0 for i_idx in range(method.stages)]
         embedded_method = RK(ButcherTableau(a=method.tableau.a, b=b_hat))
         self.assertEqual(1, embedded_method.order())
+
+    def test_build_explicit_rk_reports_leading_error_objective(self):
+        methods, solve_result = build_explicit_rk(
+            order=2,
+            stages=2,
+            objectives=[LeadingErrorObjective(order=2)],
+        )
+        self.assertEqual(1, len(methods))
+        self.assertEqual(1, len(solve_result.objective_scores))
+        self.assertIn("LeadingErrorObjective", solve_result.objective_scores[0].scores)
+        self.assertGreaterEqual(solve_result.objective_scores[0].scores["LeadingErrorObjective"], 0.0)
 
     def test_recover_ees25_via_williamson_builder(self):
         methods, _ = build_williamson_rk(

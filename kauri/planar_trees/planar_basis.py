@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import sympy
 
-from kauri.hopf_algebras.utils import _check_valid, _nodes, _to_labelled_tuple
+from kauri.hopf_algebras.utils import _check_valid, _nodes, _to_labelled_tuple, _to_unlabelled_tuple
 from kauri.trees.trees import Tree
 
 
@@ -26,7 +26,7 @@ class PlanarTree:
             raise ValueError(f"{self.list_repr!r} is not a valid planar tree representation.")
         tuple_repr: tuple = _to_labelled_tuple(self.list_repr)
         object.__setattr__(self, "list_repr", tuple_repr)
-        object.__setattr__(self, "unlabelled_repr", _strip_labels(tuple_repr))
+        object.__setattr__(self, "unlabelled_repr", _to_unlabelled_tuple(tuple_repr))
 
     def nodes(self) -> int:
         return _nodes(self.unlabelled_repr)
@@ -136,12 +136,6 @@ class TensorOrderedSum:
 
     def __len__(self) -> int:
         return len(self.term_list)
-
-
-def _strip_labels(rep: tuple | None) -> tuple | None:
-    if rep is None:
-        return None
-    return tuple(_strip_labels(child) for child in rep[:-1])
 
 
 EMPTY_PLANAR_TREE = PlanarTree(None)

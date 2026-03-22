@@ -90,18 +90,39 @@ class LeadingErrorObjective:
 
 
 def _objective_label(objective: RKObjective) -> str:
+    custom_name = getattr(objective, "name", None)
+    if isinstance(custom_name, str) and custom_name:
+        return custom_name
     return objective.__class__.__name__
 
 
-def score_methods(methods: list[RK], objectives: list[RKObjective]) -> list[MethodScore]:
+def _term_labels(terms: Sequence[ObjectiveTerm]) -> list[str]:
+    labels: list[str] = []
+    counts: dict[str, int] = {}
+    for term in terms:
+        base = _objective_label(term.objective)
+        count = counts.get(base, 0) + 1
+        counts[base] = count
+        labels.append(base if count == 1 else f"{base}#{count}")
+    return labels
+
+
+def score_methods(
+    methods: Sequence[RK], objectives: Sequence[RKObjective | ObjectiveTerm]
+) -> list[MethodScore]:
     """
     Evaluate methods against a list of objectives.
     """
+    terms = _coerce_terms(objectives)
+    labels = _term_labels(terms)
+    include_weighted_total = any(term.weight != 1.0 for term in terms)
     output: list[MethodScore] = []
     for method in methods:
         scores: dict[str, float] = {}
-        for objective in objectives:
-            scores[_objective_label(objective)] = float(objective.evaluate(method))
+        for label, term in zip(labels, terms, strict=True):
+            scores[label] = float(term.objective.evaluate(method))
+        if include_weighted_total:
+            scores["weighted_total"] = _weighted_score(method, terms)
         method_name = method.name if method.name is not None else "unnamed_method"
         output.append(MethodScore(method_name=method_name, scores=scores))
     return output

@@ -241,6 +241,10 @@ class RKTests(unittest.TestCase):
         self.assertEqual(2, methods[0].order())
         self.assertAlmostEqual(0.0, methods[0].tableau.b[0], places=12)
         self.assertAlmostEqual(1.0, methods[0].tableau.b[1], places=12)
+        self.assertEqual(1, len(result.objective_scores))
+        self.assertIn("min_b0_square", result.objective_scores[0].scores)
+        self.assertAlmostEqual(0.0, result.objective_scores[0].scores["min_b0_square"], places=12)
+        self.assertIn("objective scores:", str(result))
 
     def test_rk_builder_embedded_requires_order_at_least_two(self):
         with self.assertRaises(ValueError):

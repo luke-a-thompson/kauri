@@ -6,13 +6,6 @@ from collections.abc import Sequence
 import sympy
 
 from kauri.methods.rk import RK, ButcherTableau
-from kauri.rk_builder.rk_constraints import AnyConstraint
-from kauri.rk_builder.rk_objectives import (
-    ObjectiveTerm,
-    RKObjective,
-    RKOptimizationConfig,
-    select_best_named_solution,
-)
 from kauri.rk_builder._rk_maker_core import (
     SolveResult,
     _has_exact_embedded_order,
@@ -21,7 +14,16 @@ from kauri.rk_builder._rk_maker_core import (
     _solution_is_numeric,
     embedded_weight_symbols,
     explicit_unknown_symbols,
+    generate_explicit_antisymmetric_equations,
     generate_explicit_order_equations,
+)
+from kauri.rk_builder.rk_constraints import AnyConstraint
+from kauri.rk_builder.rk_objectives import (
+    ObjectiveTerm,
+    RKObjective,
+    RKOptimizationConfig,
+    score_methods,
+    select_best_named_solution,
 )
 
 
@@ -80,6 +82,17 @@ def build_explicit_rk(
         )
         equations = equations + embedded_equations
         trees = trees + embedded_trees
+        if antisymmetric_order is not None:
+            embedded_antisymmetric_equations, embedded_antisymmetric_trees = (
+                generate_explicit_antisymmetric_equations(
+                    antisymmetric_order=antisymmetric_order - 2,
+                    stages=stages,
+                    rationalise=True,
+                    weight_symbols=b_hat_symbols,
+                )
+            )
+            equations = equations + embedded_antisymmetric_equations
+            trees = trees + embedded_antisymmetric_trees
         all_symbols = all_symbols + b_hat_symbols
         parameterization = "explicit_tableau_embedded"
     solve_result = _run_symbolic_builder(
@@ -109,6 +122,7 @@ def build_explicit_rk(
             ],
         )
     if objectives:
+
         def objective_method_factory(
             named_solution: dict[str, sympy.core.basic.Basic],
         ) -> RK | None:
@@ -134,7 +148,8 @@ def build_explicit_rk(
         chosen_fixings = {
             free_name: sympy.sympify(best_solution[free_name])
             for free_name in solve_result.free_symbols
-            if free_name in best_solution and not sympy.sympify(best_solution[free_name]).free_symbols
+            if free_name in best_solution
+            and not sympy.sympify(best_solution[free_name]).free_symbols
         }
         solve_result = dataclasses.replace(
             solve_result,
@@ -143,12 +158,15 @@ def build_explicit_rk(
             free_symbol_relations=[],
             fixings=solve_result.fixings | chosen_fixings,
         )
-    return (
-        _build_explicit_methods(
-            named_solutions=solve_result.solutions,
-            stages=stages,
-            order=order,
-            embedded=embedded,
-        ),
-        solve_result,
+    methods = _build_explicit_methods(
+        named_solutions=solve_result.solutions,
+        stages=stages,
+        order=order,
+        embedded=embedded,
     )
+    if objectives:
+        solve_result = dataclasses.replace(
+            solve_result,
+            objective_scores=score_methods(methods=methods, objectives=objectives),
+        )
+    return methods, solve_result

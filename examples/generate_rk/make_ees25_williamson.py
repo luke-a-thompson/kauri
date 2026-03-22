@@ -10,14 +10,12 @@ Run with:
 """
 
 import sympy
-from kauri.rk_builder.rk_constraints import SetConstraint
+from kauri.rk_builder.rk_constraints import FSALConstraint, SetConstraint
 from kauri.rk_builder.williamson_rk_maker import build_williamson_rk
 
 
 def main():
-    constraints = [
-        SetConstraint(sympy.Symbol("b0"), sympy.Rational(1, 4)),
-    ]
+    constraints = [FSALConstraint()]
 
     methods, solve_result = build_williamson_rk(
         order=2,

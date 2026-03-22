@@ -12,6 +12,7 @@ from kauri.rk_builder.rk_objectives import (
     ObjectiveTerm,
     RKObjective,
     RKOptimizationConfig,
+    score_methods,
     select_best_named_solution,
 )
 from kauri.rk_builder._rk_maker_core import (
@@ -185,12 +186,16 @@ def build_williamson_rk(
             free_symbol_relations=[],
             fixings=solve_result.fixings | chosen_fixings,
         )
-    return (
-        _build_williamson_methods(
-            named_solutions=solve_result.solutions,
-            stages=stages,
-            order=order,
-            embedded=embedded,
-        ),
-        solve_result,
+    methods = _build_williamson_methods(
+        named_solutions=solve_result.solutions,
+        stages=stages,
+        order=order,
+        embedded=embedded,
     )
+    if objectives:
+        objective_methods = [RK(tableau=method.tableau, name=method.name) for method in methods]
+        solve_result = dataclasses.replace(
+            solve_result,
+            objective_scores=score_methods(methods=objective_methods, objectives=objectives),
+        )
+    return methods, solve_result

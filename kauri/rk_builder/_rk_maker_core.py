@@ -2,8 +2,8 @@
 
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import NamedTuple
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, NamedTuple
 
 import sympy
 
@@ -13,6 +13,9 @@ from kauri.rk_builder.rk import _rk_symbolic_weights_map, rk_order_cond
 from kauri.rk_builder.rk_constraints import AnyConstraint, CompiledConstraints, compile_constraints
 from kauri.trees.gentrees import trees_up_to_order
 from kauri.trees.trees import Tree
+
+if TYPE_CHECKING:
+    from kauri.rk_builder.rk_objectives import MethodScore
 
 
 @dataclass
@@ -25,6 +28,7 @@ class SolveResult:
     trees: list[Tree]
     parameterization: str
     fixings: dict[str, sympy.core.basic.Basic]
+    objective_scores: list["MethodScore"] = field(default_factory=list)
 
     def __str__(self) -> str:
         return self.format()
@@ -85,11 +89,14 @@ def generate_explicit_order_equations(
 
 
 def generate_explicit_antisymmetric_equations(
-    antisymmetric_order: int, stages: int, rationalise: bool = True
+    antisymmetric_order: int,
+    stages: int,
+    rationalise: bool = True,
+    weight_symbols: list[sympy.Symbol] | None = None,
 ) -> tuple[list[sympy.core.basic.Basic], list[Tree]]:
     if antisymmetric_order <= 0:
         raise ValueError("antisymmetric_order must be positive")
-    phi = _rk_symbolic_weights_map(stages, explicit=True)
+    phi = _rk_symbolic_weights_map(stages, explicit=True, weight_symbols=weight_symbols)
     m = (phi & sign) * phi
     trees: list[Tree] = [t for t in trees_up_to_order(antisymmetric_order) if t != Tree(None)]
     equations: list[sympy.core.basic.Basic] = [
@@ -274,5 +281,5 @@ def _prepare_build(
         )
         equations = equations + antisymmetric_equations
         trees = trees + antisymmetric_trees
-    compiled = compile_constraints(constraints or [])
+    compiled = compile_constraints(constraints or [], stages=stages)
     return equations + compiled.equations, trees, compiled
