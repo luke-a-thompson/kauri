@@ -2,7 +2,7 @@
 
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, NamedTuple
 
 import sympy
@@ -205,6 +205,34 @@ def _verify_solution(
     return all(sympy.simplify(sympy.expand(eq.subs(substitutions))) == 0 for eq in equations)
 
 
+def _select_objective_solution(*, solve_result: SolveResult, objectives: Sequence, method_factory, optimization):
+    from kauri.rk_builder.rk_objectives import select_best_named_solution
+
+    best_solution = select_best_named_solution(
+        named_solutions=solve_result.solutions,
+        free_symbol_names=solve_result.free_symbols,
+        free_symbol_relations=solve_result.free_symbol_relations,
+        objectives=objectives,
+        method_factory=method_factory,
+        optimization=optimization,
+    )
+    if best_solution is None:
+        return None, replace(solve_result, solutions=[])
+    chosen_fixings = {
+        free_name: value
+        for free_name in solve_result.free_symbols
+        if free_name in best_solution
+        if not (value := sympy.sympify(best_solution[free_name])).free_symbols
+    }
+    return best_solution, replace(
+        solve_result,
+        solutions=[best_solution],
+        free_symbols=[],
+        free_symbol_relations=[],
+        fixings=solve_result.fixings | chosen_fixings,
+    )
+
+
 def _run_symbolic_builder(
     *,
     equations: list[sympy.core.basic.Basic],
@@ -260,7 +288,7 @@ def _run_symbolic_builder(
     )
 
 
-def _prepare_build(
+def prepare_build(
     order: int,
     stages: int,
     antisymmetric_order: int | None,

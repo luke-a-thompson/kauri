@@ -21,7 +21,6 @@ from kauri.hopf_algebras import bck, cem
 from kauri.hopf_algebras.bseries import BSeries, elementary_differential
 from kauri.hopf_algebras.maps import Map, exact_weights, ident, omega, sign
 from kauri.hopf_algebras.oddeven import id_sqrt, minus, plus
-from kauri.methods.cf import VerificationResult, verify_cf_ees
 from kauri.methods.rk import RK
 from kauri.methods.rk_catalog import (
     EES25,

@@ -10,9 +10,8 @@ Run with:
 """
 
 import sympy
-from kauri.methods.cf import verify_cf_ees
 from kauri.rk_builder.rk_constraints import SetConstraint
-from kauri.rk_builder.rk_maker import build_williamson_rk
+from kauri.rk_builder.williamson_rk_maker import build_williamson_rk
 
 
 def main() -> int:
@@ -28,13 +27,8 @@ def main() -> int:
         cf = method.to_cf()
         print(cf.to_text())
 
-        verification = verify_cf_ees(cf, order=4)
-        print(
-            f"verification: passed={verification.passed}, "
-            f"checked_elements={verification.checked_elements}, "
-            f"first_failure={verification.first_failure}, "
-            f"residual={verification.residual}"
-        )
+        verification = cf.verify_antisymmetric_order(order=5)
+        print(f"verification passed: {verification}")
 
     return 0
 

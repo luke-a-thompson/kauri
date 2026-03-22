@@ -9,7 +9,8 @@ from kauri.methods.rk import RK, ButcherTableau
 from kauri.rk_builder._rk_maker_core import (
     SolveResult,
     _has_exact_embedded_order,
-    _prepare_build,
+    _select_objective_solution,
+    prepare_build,
     _run_symbolic_builder,
     _solution_is_numeric,
     embedded_weight_symbols,
@@ -23,7 +24,6 @@ from kauri.rk_builder.rk_objectives import (
     RKObjective,
     RKOptimizationConfig,
     score_methods,
-    select_best_named_solution,
 )
 
 
@@ -66,7 +66,7 @@ def build_explicit_rk(
     objectives: Sequence[RKObjective | ObjectiveTerm] | None = None,
     optimization: RKOptimizationConfig | None = None,
 ) -> tuple[list[RK], SolveResult]:
-    equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
+    equations, trees, compiled = prepare_build(order, stages, antisymmetric_order, constraints)
     if embedded and order < 2:
         raise ValueError("embedded explicit RK requires order at least 2")
     a_symbols, b_symbols = explicit_unknown_symbols(stages=stages)
@@ -134,30 +134,14 @@ def build_explicit_rk(
             )
             return methods[0] if methods else None
 
-        best_solution = select_best_named_solution(
-            named_solutions=solve_result.solutions,
-            free_symbol_names=solve_result.free_symbols,
-            free_symbol_relations=solve_result.free_symbol_relations,
+        best_solution, solve_result = _select_objective_solution(
+            solve_result=solve_result,
             objectives=objectives,
             method_factory=objective_method_factory,
             optimization=optimization,
         )
         if best_solution is None:
-            solve_result = dataclasses.replace(solve_result, solutions=[])
             return [], solve_result
-        chosen_fixings = {
-            free_name: sympy.sympify(best_solution[free_name])
-            for free_name in solve_result.free_symbols
-            if free_name in best_solution
-            and not sympy.sympify(best_solution[free_name]).free_symbols
-        }
-        solve_result = dataclasses.replace(
-            solve_result,
-            solutions=[best_solution],
-            free_symbols=[],
-            free_symbol_relations=[],
-            fixings=solve_result.fixings | chosen_fixings,
-        )
     methods = _build_explicit_methods(
         named_solutions=solve_result.solutions,
         stages=stages,

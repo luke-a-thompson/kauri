@@ -120,3 +120,15 @@ class MKWMap:
 
 def counit_map() -> MKWMap:
     return MKWMap(counit_planar)
+
+
+def verify_mkw_ees(phi: MKWMap, order: int) -> bool:
+    from kauri.planar_trees.planar_basis import validate_order
+    from kauri.trees.gentrees import planar_trees_up_to_order
+
+    validate_order(order, allow_zero=False)
+    residual_map = phi.sign_twisted().convolution(phi)
+    return all(
+        _simplify_expanded(_as_expr(residual_map(tree)) - _as_expr(counit_planar(tree))) == 0
+        for tree in planar_trees_up_to_order(order)
+    )

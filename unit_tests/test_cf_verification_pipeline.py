@@ -2,7 +2,6 @@ import unittest
 
 import sympy
 
-from kauri.methods.cf import verify_cf_ees
 from kauri.methods.rk_catalog import euler
 from kauri.methods.williamson import WilliamsonCF
 from kauri.planar_trees.planar_basis import PlanarTree
@@ -25,9 +24,8 @@ class CFVerificationPipelineTests(unittest.TestCase):
 
     def test_williamson_lift_smoke(self) -> None:
         cf_method = euler.to_williamson().to_cf()
-        result = verify_cf_ees(cf_method, order=2)
-        self.assertFalse(result.passed)
-        self.assertGreater(result.checked_elements, 0)
+        result = cf_method.verify_antisymmetric_order(order=2)
+        self.assertFalse(result)
 
     def test_to_cf_and_verify_smoke(self) -> None:
         generated_methods, _ = build_explicit_rk(
@@ -37,9 +35,12 @@ class CFVerificationPipelineTests(unittest.TestCase):
         self.assertGreaterEqual(len(generated_methods), 1)
         for method in generated_methods:
             cf = method.to_williamson().to_cf()
-            verification = verify_cf_ees(cf, order=2)
-            self.assertIsNotNone(verification)
-            self.assertGreater(verification.checked_elements, 0)
+            verification = cf.verify_antisymmetric_order(order=2)
+            self.assertIsInstance(verification, bool)
+
+    def test_williamson_cf_verify_antisymmetric_order_stub(self) -> None:
+        cf = euler.to_williamson().to_cf()
+        self.assertFalse(cf.verify_antisymmetric_order(order=2))
 
     def test_williamson_cf_derives_coefficients_from_base(self) -> None:
         cf = euler.to_williamson().to_cf()

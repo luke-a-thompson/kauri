@@ -136,3 +136,8 @@ class WilliamsonCF:
 
         rk_weights = RK(tableau=self.base.tableau, name=self.base.name).elementary_weights_map()
         return MKWMap(lambda tree: rk_weights(tree.to_nonplanar_tree()))
+
+    def verify_antisymmetric_order(self, order: int) -> bool:
+        from kauri.planar_trees.mkw_truncated import verify_mkw_ees
+
+        return verify_mkw_ees(self.elementary_weights_map(), order)

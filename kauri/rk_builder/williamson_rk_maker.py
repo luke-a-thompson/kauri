@@ -13,11 +13,11 @@ from kauri.rk_builder.rk_objectives import (
     RKObjective,
     RKOptimizationConfig,
     score_methods,
-    select_best_named_solution,
 )
 from kauri.rk_builder._rk_maker_core import (
     SolveResult,
-    _prepare_build,
+    _select_objective_solution,
+    prepare_build,
     _run_symbolic_builder,
     _solution_is_numeric,
     generate_explicit_order_equations,
@@ -97,7 +97,7 @@ def build_williamson_rk(
     objectives: Sequence[RKObjective | ObjectiveTerm] | None = None,
     optimization: RKOptimizationConfig | None = None,
 ) -> tuple[list[WilliamsonRK], SolveResult]:
-    equations, trees, compiled = _prepare_build(order, stages, antisymmetric_order, constraints)
+    equations, trees, compiled = prepare_build(order, stages, antisymmetric_order, constraints)
     if embedded and order < 2:
         raise ValueError("embedded Williamson RK requires order at least 2")
     if embedded and stages < 2:
@@ -163,29 +163,14 @@ def build_williamson_rk(
             method = methods[0]
             return RK(tableau=method.tableau, name=method.name)
 
-        best_solution = select_best_named_solution(
-            named_solutions=solve_result.solutions,
-            free_symbol_names=solve_result.free_symbols,
-            free_symbol_relations=solve_result.free_symbol_relations,
+        best_solution, solve_result = _select_objective_solution(
+            solve_result=solve_result,
             objectives=objectives,
             method_factory=objective_method_factory,
             optimization=optimization,
         )
         if best_solution is None:
-            solve_result = dataclasses.replace(solve_result, solutions=[])
             return [], solve_result
-        chosen_fixings = {
-            free_name: sympy.sympify(best_solution[free_name])
-            for free_name in solve_result.free_symbols
-            if free_name in best_solution and not sympy.sympify(best_solution[free_name]).free_symbols
-        }
-        solve_result = dataclasses.replace(
-            solve_result,
-            solutions=[best_solution],
-            free_symbols=[],
-            free_symbol_relations=[],
-            fixings=solve_result.fixings | chosen_fixings,
-        )
     methods = _build_williamson_methods(
         named_solutions=solve_result.solutions,
         stages=stages,
