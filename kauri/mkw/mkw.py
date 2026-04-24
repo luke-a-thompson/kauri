@@ -17,17 +17,14 @@ The MKW (Munthe-Kaas--Wright) Hopf algebra module.
 
 The MKW Hopf algebra ``H_MKW = (OF, shuffle, Delta_MKW)`` lives on
 ordered (planar) forests with the **commutative shuffle product** and
-the left-admissible-cuts coproduct.  Characters of ``H_MKW`` must
-therefore be **shuffle-multiplicative**: ``alpha(x shuffle y) = alpha(x)
-* alpha(y)``.  The :class:`kauri.maps.Map` objects returned by
-:func:`counit`, :func:`antipode`, :func:`map_product` and
-:func:`map_power` use ``extension="shuffle"`` so that evaluation on an
-ordered forest ``(t_1, ..., t_k)`` picks up the ``1/k!`` shuffle
-multinomial denominator.  This is the correct convention for every
-LB-series character arising from an RKMK/CF method: a single ``exp(beta
-k)`` generates a shuffle-symmetric character, and :func:`map_product`
-preserves symmetry, so kauri's MKW characters are always
-shuffle-symmetric.  Asymmetric MKW characters are not supported.
+the left-admissible-cuts coproduct.  Characters of ``H_MKW`` satisfy
+``alpha(x shuffle y) = alpha(x) * alpha(y)``.  Base exponential
+characters are often supplied from tree values and extended with the
+shuffle-symmetric ``1/k!`` convention, but composed characters must keep
+their actual ordered-forest values.  The :class:`kauri.maps.Map` objects
+returned by :func:`counit`, :func:`antipode`, :func:`map_product` and
+:func:`map_power` therefore use ``extension="shuffle"`` with basis-aware
+functions that can evaluate both trees and ordered forests.
 """
 from functools import cache
 from itertools import combinations, product as iter_product

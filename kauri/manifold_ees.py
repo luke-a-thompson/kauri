@@ -6,7 +6,7 @@ exponentials *J*, explicit flag), this module:
 
 1. Creates symbolic SymPy parameters ``a[i][j]`` and ``beta[l][i]``.
 2. Computes the LB-series character ``alpha(tau)`` for each ordered tree
-   via NCK convolution of the individual exponential characters.
+   via MKW convolution of the individual exponential characters.
 3. Generates forward conditions ``alpha(tau) - 1/gamma(tau) = 0``.
 4. Generates antisymmetry conditions ``D(tau) = 0``.
 5. Provides a thin Groebner-basis wrapper around ``sympy.groebner``.
@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import sympy
 
-from .trees import PlanarTree, EMPTY_PLANAR_TREE, OrderedForest
+from .trees import PlanarTree, EMPTY_PLANAR_TREE, OrderedForest, validate_order
 from ._protocols import ForestLike
-from .gentrees import planar_trees_of_order
+from .gentrees import planar_trees_of_order, planar_trees_up_to_order
 from .rk import _elementary_symbolic
 from .mkw.mkw import coproduct_impl, forest_coproduct_impl
 from .generic_algebra import sign_factor
@@ -121,6 +121,35 @@ def _sym_coproduct_eval(x, left_fn, right_fn):
 # Symbolic LB-series character via NCK convolution
 # ---------------------------------------------------------------------------
 
+def _symbolic_lb_character_func(
+    a: sympy.Matrix,
+    betas: list[list],
+    s: int,
+    J: int,
+    *,
+    _b_mats: list[sympy.Matrix] | None = None,
+):
+    """Build the basis-aware symbolic MKW character for a CF method."""
+    if _b_mats is None:
+        _b_mats = [sympy.Matrix(1, s, lambda _, i: betas[l][i]) for l in range(J)]
+
+    def _ew_tree(l):
+        """Tree-only elementary weight for exponential l."""
+        b_l = _b_mats[l]
+        return lambda t: _elementary_symbolic(t.list_repr, a, b_l, s)
+
+    def _ew_basis(l):
+        tree_fn = _ew_tree(l)
+        return lambda x: _shuffle_sym_value(x, tree_fn)
+
+    ew_funcs = [_ew_basis(l) for l in range(J)]
+    current = ew_funcs[0]
+    for l in range(1, J):
+        prev, outer = current, ew_funcs[l]
+        current = lambda t, _p=prev, _o=outer: _sym_coproduct_eval(t, _o, _p)
+    return current
+
+
 def symbolic_lb_character(
     tree: PlanarTree,
     a: sympy.Matrix,
@@ -148,31 +177,13 @@ def symbolic_lb_character(
     :param _b_mats: Pre-built weight matrices (internal optimisation).
     :returns: A SymPy expression in the CF parameters.
     """
-    if _b_mats is None:
-        _b_mats = [sympy.Matrix(1, s, lambda _, i: betas[l][i]) for l in range(J)]
-
-    def _ew_tree(l):
-        """Tree-only elementary weight for exponential l."""
-        b_l = _b_mats[l]
-        return lambda t: _elementary_symbolic(t.list_repr, a, b_l, s)
-
-    # Wrap each exponential's tree function as a basis-aware base character
-    # (shuffle-symmetric extension to forests).
-    def _ew_basis(l):
-        tree_fn = _ew_tree(l)
-        return lambda x: _shuffle_sym_value(x, tree_fn)
-
-    ew_funcs = [_ew_basis(l) for l in range(J)]
-
-    if J == 1:
-        return sympy.expand(ew_funcs[0](tree))
-
-    # Iteratively convolve: result = alpha_1, then alpha_2 *_MKW result, ...
-    current = ew_funcs[0]
-    for l in range(1, J):
-        prev, outer = current, ew_funcs[l]
-        current = lambda t, _p=prev, _o=outer: _sym_coproduct_eval(t, _o, _p)
-
+    current = _symbolic_lb_character_func(
+        a,
+        betas,
+        s,
+        J,
+        _b_mats=_b_mats,
+    )
     return sympy.expand(current(tree))
 
 
@@ -221,31 +232,38 @@ def antisymmetry_conditions(
     max_order: int,
     alpha_cache: dict[tuple, sympy.Expr],
     sign_cache: dict[tuple, int],
+    alpha_func=None,
 ) -> list[sympy.Expr]:
     """
     Antisymmetry conditions: ``D(tau) = 0`` for all ordered trees of
     order ``1`` through ``max_order``, where
-    ``D = (sign . alpha) *_nck alpha - epsilon``.
+    ``D = (sign . alpha) *_MKW alpha - epsilon``.
     """
-    # Pre-compute sign * alpha for all cached trees
-    sign_alpha_cache = {
-        key: sign_cache[key] * val
-        for key, val in alpha_cache.items()
-    }
+    if alpha_func is None:
+        # Compatibility path for callers that only supply tree values.
+        sign_alpha_cache = {
+            key: sign_cache[key] * val
+            for key, val in alpha_cache.items()
+        }
 
-    # Tree-only lookups
-    def _alpha_tree(t):
-        return alpha_cache[t.list_repr]
+        def _alpha_tree(t):
+            return alpha_cache[t.list_repr]
 
-    def _sign_alpha_tree(t):
-        return sign_alpha_cache[t.list_repr]
+        def _sign_alpha_tree(t):
+            return sign_alpha_cache[t.list_repr]
 
-    # Basis-aware wrappers (shuffle-symmetric extension on forests)
-    def _alpha(x):
-        return _shuffle_sym_value(x, _alpha_tree)
+        def _alpha(x):
+            return _shuffle_sym_value(x, _alpha_tree)
 
-    def _sign_alpha(x):
-        return _shuffle_sym_value(x, _sign_alpha_tree)
+        def _sign_alpha(x):
+            return _shuffle_sym_value(x, _sign_alpha_tree)
+    else:
+        # Use the actual forest values of the composed MKW character.
+        def _alpha(x):
+            return sympy.sympify(alpha_func(x))
+
+        def _sign_alpha(x):
+            return sign_factor(x) * sympy.sympify(alpha_func(x))
 
     conds = []
     for n in range(1, max_order + 1):
@@ -279,10 +297,15 @@ def generate_conditions(
 
     # Compute all alpha values once, shared by both condition generators
     max_order = max(forward_order, antisymmetric_order)
-    alpha_cache, sign_cache = _build_alpha_cache(max_order, a, betas, s, J)
+    b_mats = [sympy.Matrix(1, s, lambda _, i: betas[l][i]) for l in range(J)]
+    alpha_cache, sign_cache = _build_alpha_cache(
+        max_order, a, betas, s, J)
+    alpha_func = _symbolic_lb_character_func(
+        a, betas, s, J, _b_mats=b_mats)
 
     fc = forward_conditions(forward_order, alpha_cache)
-    ac = antisymmetry_conditions(antisymmetric_order, alpha_cache, sign_cache)
+    ac = antisymmetry_conditions(
+        antisymmetric_order, alpha_cache, sign_cache, alpha_func=alpha_func)
     all_conds = fc + ac
 
     syms = _extract_symbols(all_conds)
@@ -357,9 +380,6 @@ def verify_ees_character(phi, order: int, tol: float = 1e-10) -> bool:
     :param tol: Numerical tolerance for floating-point residuals.
     :returns: ``True`` if the condition holds for all trees up to *order*.
     """
-    from .gentrees import planar_trees_up_to_order
-    from .trees import validate_order
-
     validate_order(order, allow_zero=False)
 
     def _phi_tree(t):
