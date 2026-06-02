@@ -47,3 +47,12 @@ methods as ready-to-use :class:`CFMethod` instances.
 
 .. autodata:: kauri.cf_methods.cfree_rk4
    :no-value:
+
+Lie-Butcher substitution helpers
+--------------------------------
+
+.. automodule:: kauri.lb_substitution
+
+.. autofunction:: kauri.lb_substitution.delta_w_terms
+.. autofunction:: kauri.lb_substitution.substitute
+.. autofunction:: kauri.lb_substitution.frozen_exponential_character

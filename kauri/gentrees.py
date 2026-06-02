@@ -284,6 +284,129 @@ def colored_planar_trees_up_to_order(order: int, d: int):
         yield from colored_planar_trees_of_order(current_order, d)
 
 
+def ordered_forests_of_order(order: int):
+    """
+    Yields ordered forests of planar rooted trees with a fixed total order.
+
+    Order 0 contains only the empty ordered forest.
+    """
+    from .trees import validate_order
+
+    validate_order(order)
+    yield from _ordered_forest_list_exact_cached(order)
+
+
+@cache
+def _planar_tree_node_pairs(max_order: int) -> tuple:
+    return tuple(
+        (tree, tree.nodes()) for tree in planar_trees_up_to_order(max_order)
+        if tree.nodes() != 0
+    )
+
+
+@cache
+def _ordered_forest_list_exact_cached(order: int) -> tuple:
+    return _ordered_forest_strata_cached(order)[order]
+
+
+@cache
+def _ordered_forest_strata_cached(max_order: int) -> tuple:
+    from .trees import EMPTY_ORDERED_FOREST, OrderedForest
+
+    tree_pairs = _planar_tree_node_pairs(max_order)
+    strata = [(EMPTY_ORDERED_FOREST,)]
+    for order in range(1, max_order + 1):
+        out = []
+        for tree, nodes in tree_pairs:
+            if nodes > order:
+                break
+            remaining = order - nodes
+            if remaining == 0:
+                out.append(OrderedForest((tree,)))
+            else:
+                for suffix in strata[remaining]:
+                    out.append(OrderedForest((tree,) + suffix.tree_list))
+        strata.append(tuple(out))
+    return tuple(strata)
+
+
+def ordered_forests_up_to_order(order: int):
+    """
+    Yields ordered forests of planar rooted trees up to a given total order.
+    """
+    from .trees import validate_order
+
+    validate_order(order)
+    yield from _ordered_forest_list_cached(order)
+
+
+@cache
+def _ordered_forest_list_cached(max_order: int) -> tuple:
+    return tuple(
+        forest
+        for stratum in _ordered_forest_strata_cached(max_order)
+        for forest in stratum
+    )
+
+
+def colored_ordered_forests_of_order(order: int, d: int):
+    """
+    Yields colored ordered forests with a fixed total order and *d* colors.
+
+    Each node is decorated with a color from {0, ..., d-1}.
+    """
+    from .trees import validate_order
+
+    validate_order(order)
+    _validate_num_colors(d)
+    yield from _colored_ordered_forest_list_exact_cached(order, d)
+
+
+@cache
+def _colored_planar_tree_node_pairs(max_order: int, d: int) -> tuple:
+    return tuple(
+        (tree, tree.nodes()) for tree in _colored_planar_tree_list_cached(max_order, d)
+        if tree.nodes() != 0
+    )
+
+
+@cache
+def _colored_ordered_forest_list_exact_cached(order: int, d: int) -> tuple:
+    return _colored_ordered_forest_strata_cached(order, d)[order]
+
+
+@cache
+def _colored_ordered_forest_strata_cached(max_order: int, d: int) -> tuple:
+    from .trees import EMPTY_ORDERED_FOREST, OrderedForest
+
+    tree_pairs = _colored_planar_tree_node_pairs(max_order, d)
+    strata = [(EMPTY_ORDERED_FOREST,)]
+    for order in range(1, max_order + 1):
+        out = []
+        for tree, nodes in tree_pairs:
+            if nodes > order:
+                break
+            remaining = order - nodes
+            if remaining == 0:
+                out.append(OrderedForest((tree,)))
+            else:
+                for suffix in strata[remaining]:
+                    out.append(OrderedForest((tree,) + suffix.tree_list))
+        strata.append(tuple(out))
+    return tuple(strata)
+
+
+def colored_ordered_forests_up_to_order(order: int, d: int):
+    """
+    Yields colored ordered forests up to a given total order with *d* colors.
+    """
+    from .trees import validate_order
+
+    validate_order(order)
+    _validate_num_colors(d)
+    yield from _colored_ordered_forest_list_cached(order, d)
+
+
 # ---------------------------------------------------------------------------
 # Colored tree indexing
 # ---------------------------------------------------------------------------
@@ -312,6 +435,23 @@ def _colored_planar_tree_lookup_cached(max_order: int, d: int) -> dict:
     """Cached dict mapping PlanarTree -> index."""
     trees = _colored_planar_tree_list_cached(max_order, d)
     return {t: i for i, t in enumerate(trees)}
+
+
+@cache
+def _colored_ordered_forest_list_cached(max_order: int, d: int) -> tuple:
+    """Cached tuple of all colored ordered forests up to max_order with d colors."""
+    return tuple(
+        forest
+        for stratum in _colored_ordered_forest_strata_cached(max_order, d)
+        for forest in stratum
+    )
+
+
+@cache
+def _colored_ordered_forest_lookup_cached(max_order: int, d: int) -> dict:
+    """Cached dict mapping OrderedForest -> index."""
+    forests = _colored_ordered_forest_list_cached(max_order, d)
+    return {f: i for i, f in enumerate(forests)}
 
 
 def colored_trees(d: int, max_order: int) -> list[Tree]:
@@ -417,6 +557,62 @@ def idx_to_colored_planar_tree(idx: int, d: int, max_order: int):
     if idx < 0 or idx >= len(trees):
         raise ValueError(f"idx {idx} out of range [0, {len(trees)}) for d={d}, max_order={max_order}")
     return trees[idx]
+
+
+def colored_ordered_forests(d: int, max_order: int) -> list:
+    """
+    Returns all colored ordered forests up to a given total order with *d* colors,
+    starting with the empty ordered forest.
+
+    :param d: Number of colors.
+    :type d: int
+    :param max_order: Maximum total number of nodes.
+    :type max_order: int
+    :return: List of colored ordered forests.
+    :rtype: list[OrderedForest]
+    """
+    _validate_num_colors(d)
+    return list(_colored_ordered_forest_list_cached(max_order, d))
+
+
+def colored_ordered_forest_to_idx(forest, d: int, max_order: int) -> int:
+    """
+    Returns the index of a colored ordered forest in the canonical enumeration.
+
+    :param forest: A colored ordered forest.
+    :type forest: OrderedForest
+    :param d: Number of colors.
+    :type d: int
+    :param max_order: Maximum total number of nodes.
+    :type max_order: int
+    :return: Index in the enumeration.
+    :rtype: int
+    """
+    _validate_num_colors(d)
+    lookup = _colored_ordered_forest_lookup_cached(max_order, d)
+    if forest not in lookup:
+        raise ValueError(f"Ordered forest {forest} not found in enumeration for d={d}, max_order={max_order}")
+    return lookup[forest]
+
+
+def idx_to_colored_ordered_forest(idx: int, d: int, max_order: int):
+    """
+    Returns the colored ordered forest at a given index in the canonical enumeration.
+
+    :param idx: Index, with 0 the empty ordered forest.
+    :type idx: int
+    :param d: Number of colors.
+    :type d: int
+    :param max_order: Maximum total number of nodes.
+    :type max_order: int
+    :return: The colored ordered forest at the given index.
+    :rtype: OrderedForest
+    """
+    _validate_num_colors(d)
+    forests = _colored_ordered_forest_list_cached(max_order, d)
+    if idx < 0 or idx >= len(forests):
+        raise ValueError(f"idx {idx} out of range [0, {len(forests)}) for d={d}, max_order={max_order}")
+    return forests[idx]
 
 
 # ---------------------------------------------------------------------------

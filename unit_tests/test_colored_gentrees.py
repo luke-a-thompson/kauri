@@ -1,8 +1,11 @@
 import unittest
-from kauri import (Tree, PlanarTree, ident, bck,
+from kauri import (Tree, PlanarTree, OrderedForest, ident, bck,
                    trees_of_order, colored_trees_of_order, colored_trees_up_to_order,
                    planar_trees_of_order,
-                   colored_planar_trees_of_order, colored_planar_trees_up_to_order)
+                   colored_planar_trees_of_order, colored_planar_trees_up_to_order,
+                   ordered_forests_of_order, colored_ordered_forests_of_order,
+                   colored_ordered_forests_up_to_order, colored_ordered_forests,
+                   colored_ordered_forest_to_idx, idx_to_colored_ordered_forest)
 from kauri.utils import _list_repr_to_color_sequence, _apply_color_sequence
 
 
@@ -105,6 +108,45 @@ class ColoredPlanarTreeGenerationTests(unittest.TestCase):
             colors = _list_repr_to_color_sequence(t.list_repr)
             reconstructed = PlanarTree(_apply_color_sequence(t.unlabelled_repr, iter(colors)))
             self.assertEqual(t, reconstructed)
+
+
+class ColoredOrderedForestGenerationTests(unittest.TestCase):
+
+    def test_d1_counts_are_next_catalan_numbers(self):
+        """Ordered forests with n nodes are counted by Catalan(n)."""
+        expected = {0: 1, 1: 1, 2: 2, 3: 5, 4: 14}
+        for n, count in expected.items():
+            result = sum(1 for _ in ordered_forests_of_order(n))
+            self.assertEqual(count, result, f"order {n}")
+
+    def test_colored_counts_are_d_pow_n_times_uncolored(self):
+        """Planar forest shapes have no symmetry."""
+        for n in range(0, 5):
+            uncolored = sum(1 for _ in ordered_forests_of_order(n))
+            for d in range(1, 4):
+                colored = sum(1 for _ in colored_ordered_forests_of_order(n, d))
+                self.assertEqual(uncolored * d ** n, colored, f"order {n}, d={d}")
+
+    def test_yields_ordered_forests(self):
+        """All generated objects are OrderedForest instances."""
+        for f in colored_ordered_forests_of_order(3, 2):
+            self.assertIsInstance(f, OrderedForest)
+
+    def test_order_two_lists_words_before_singletons(self):
+        """Enumeration is by total order, then recursive forest word order."""
+        forests = list(colored_ordered_forests_of_order(2, 2))
+        self.assertEqual([f.num_trees() for f in forests], [2, 2, 2, 2, 1, 1, 1, 1])
+
+    def test_up_to_order_starts_with_empty(self):
+        forests = list(colored_ordered_forests_up_to_order(0, 2))
+        self.assertEqual(len(forests), 1)
+        self.assertEqual(forests[0].nodes(), 0)
+
+    def test_index_round_trip(self):
+        forests = colored_ordered_forests(2, 3)
+        for idx, forest in enumerate(forests):
+            self.assertEqual(colored_ordered_forest_to_idx(forest, 2, 3), idx)
+            self.assertEqual(idx_to_colored_ordered_forest(idx, 2, 3), forest)
 
 
 if __name__ == "__main__":

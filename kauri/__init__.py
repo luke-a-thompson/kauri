@@ -35,6 +35,10 @@ __all__ = [
     "planar_trees_of_order", "planar_trees_up_to_order",
     "colored_planar_trees_of_order", "colored_planar_trees_up_to_order",
     "colored_planar_tree_to_idx", "idx_to_colored_planar_tree",
+    "ordered_forests_of_order", "ordered_forests_up_to_order",
+    "colored_ordered_forests_of_order", "colored_ordered_forests_up_to_order",
+    "colored_ordered_forests", "colored_ordered_forest_to_idx",
+    "idx_to_colored_ordered_forest",
     "planar_canonical_to_recursive_permutation", "planar_recursive_to_canonical_permutation",
     # Display
     "display",
@@ -68,6 +72,10 @@ from .gentrees import (trees_of_order, trees_up_to_order,
                        planar_trees_of_order, planar_trees_up_to_order,
                        colored_planar_trees_of_order, colored_planar_trees_up_to_order,
                        colored_planar_tree_to_idx, idx_to_colored_planar_tree,
+                       ordered_forests_of_order, ordered_forests_up_to_order,
+                       colored_ordered_forests_of_order, colored_ordered_forests_up_to_order,
+                       colored_ordered_forests, colored_ordered_forest_to_idx,
+                       idx_to_colored_ordered_forest,
                        planar_canonical_to_recursive_permutation,
                        planar_recursive_to_canonical_permutation)
 from .rk import RK, rk_symbolic_weight, rk_order_cond
