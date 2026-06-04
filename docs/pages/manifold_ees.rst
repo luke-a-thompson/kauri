@@ -11,4 +11,4 @@ Manifold EES Order Conditions
 .. autofunction:: kauri.manifold_ees.groebner_basis
 .. autofunction:: kauri.manifold_ees.mathematica_export
 .. autofunction:: kauri.manifold_ees.verify_conditions
-
+.. autofunction:: kauri.manifold_ees.verify_ees_character
