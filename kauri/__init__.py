@@ -13,6 +13,8 @@
 # limitations under the License.
 # =========================================================================
 
+# ruff: noqa: I001
+
 """
 Algebraic manipulation of rooted trees for the analysis of B-series and Runge-Kutta schemes.
 """
@@ -56,7 +58,7 @@ __all__ = [
     # Odd-even decomposition
     "id_sqrt", "minus", "plus",
     # Submodules
-    "bck", "cem", "gl", "mkw", "nck", "pgl", "lb_substitution",
+    "bck", "cem", "gl", "mkw", "nck", "pgl", "lb_substitution", "sigrk",
     "oddeven", "planar_oddeven",
 ]
 
@@ -87,13 +89,4 @@ from .rk_methods import (euler, heun_rk2, midpoint, kutta_rk3, heun_rk3,
                          EES25, EES27)
 from .bseries import BSeries, elementary_differential
 from .oddeven import id_sqrt, minus, plus
-
-import kauri.bck
-import kauri.cem
-import kauri.gl
-import kauri.lb_substitution
-import kauri.mkw
-import kauri.nck
-import kauri.pgl
-import kauri.oddeven
-import kauri.planar_oddeven
+from . import bck, cem, gl, lb_substitution, mkw, nck, oddeven, pgl, planar_oddeven, sigrk
